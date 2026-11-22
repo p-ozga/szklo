@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Szkło</string>
+
+    <string name="channel_player">Odtwarzacz</string>
+    <string name="channel_player_desc">Odtwarzanie pliku z telefonu przez rdzeń Szkło</string>
+    <string name="channel_global">Efekty dla innych aplikacji</string>
+    <string name="channel_global_desc">Działanie efektu w Spotify i innych odtwarzaczach</string>
+
+    <string name="notif_player_title">Szkło – odtwarzanie</string>
+    <string name="notif_global_title">Szkło działa w innych aplikacjach</string>
+    <string name="notif_global_text">Przybliżenie przez efekt systemowy · sesje: %1$d</string>
+    <string name="action_pause">Pauza</string>
+    <string name="action_resume">Wznów</string>
+    <string name="action_stop">Zatrzymaj</string>
+    <string name="action_disable">Wyłącz</string>
+</resources>

@@ -1,0 +1,17 @@
+/target
+/.venv
+*.wav
+!/tests/data/*.wav
+/app-android/.gradle
+/app-android/build
+/app-android/app/build
+/app-android/local.properties
+/app-android/app/src/main/jniLibs
+/app-android/.idea
+/app-android/.kotlin
+/app-android/**/*.iml
+/dist
+
+/corpus
+/reports
+/harness

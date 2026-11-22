@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Motyw okna: zawsze ciemny, kolor tła z tokenów (#081113) – bez białego błysku przy starcie. -->
+    <style name="Theme.Szklo" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/szklo_background</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+
+    <color name="szklo_background">#FF081113</color>
+    <color name="szklo_accent">#FF1EC97B</color>
+</resources>

@@ -1,0 +1,33 @@
+[package]
+name = "szklo-jni"
+version.workspace = true
+edition.workspace = true
+description = "Szkło – most JNI do rdzenia DSP (Android)"
+
+[lib]
+name = "szklo_jni"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+szklo-core = { path = "../../core" }
+jni = { version = "0.21", default-features = false }
+
+# Spotify Connect (odbiornik „Szkło”): otwarty klient librespot, TLS w czystym Ruście (bez OpenSSL na Androidzie).
+librespot-core = { version = "0.8", default-features = false, features = ["rustls-tls-webpki-roots"] }
+librespot-connect = { version = "0.8", default-features = false, features = ["rustls-tls-webpki-roots"] }
+librespot-playback = { version = "0.8", default-features = false, features = ["rustls-tls-webpki-roots"] }
+librespot-oauth = { version = "0.8", default-features = false, features = ["rustls-tls-webpki-roots"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time"] }
+futures-util = "0.3"
+cpal = "0.16"
+ringbuf = "0.4"
+log = { version = "0.4", features = ["std"] }
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls-webpki-roots"] }
+serde_json = "1"
+sha2 = "0.10"
+base64 = "0.22"
+rand = "0.8"
+
+[target.'cfg(target_os = "android")'.dependencies]
+android_logger = "0.14"
+ndk-context = "0.1"

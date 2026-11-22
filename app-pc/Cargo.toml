@@ -1,0 +1,51 @@
+[package]
+name = "szklo-app"
+version.workspace = true
+edition.workspace = true
+description = "Szkło – aplikacja PC (UI WebView2 1:1 z makiety, silnik audio, sterowanie wtyczką w Equalizer APO)"
+
+[[bin]]
+name = "Szklo"
+path = "src/main.rs"
+
+[dependencies]
+szklo-core = { path = "../core" }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+wry = "0.57"
+tao = "0.37"
+tray-icon = "0.21"
+cpal = "0.16"
+ringbuf = "0.4"
+log = "0.4"
+# wbudowany odtwarzacz: dekodowanie (MPL-2.0), przeliczanie częstotliwości (MIT), widmo (MIT/Apache-2.0), okno wyboru plików (MIT)
+symphonia = { version = "0.5", features = ["mp3", "aac", "isomp4", "alac", "flac", "vorbis", "ogg", "wav", "pcm", "aiff"] }
+rubato = "0.16"
+rustfft = "6"
+rfd = "0.15"
+# Spotify (Premium) w Szkle: librespot – otwarty, nieoficjalny klient (MIT); TLS w czystym Ruście
+librespot-core = { version = "0.8", default-features = false, features = ["rustls-tls-webpki-roots"] }
+librespot-playback = { version = "0.8", default-features = false, features = ["rustls-tls-webpki-roots"] }
+librespot-metadata = { version = "0.8", default-features = false }
+librespot-protocol = "0.8"
+protobuf = "3"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time"] }
+futures-util = "0.3"
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls-webpki-roots"] }
+sha2 = "0.10"
+base64 = "0.22"
+rand = "0.8"
+# mrożone szkło za oknem (akryl Windows) – Tauri, MIT/Apache-2.0
+window-vibrancy = "0.6"
+
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.58", features = ["Win32_Foundation", "Win32_Graphics_Dwm", "Win32_System_Threading", "Win32_System_Registry","Win32_Security", "Win32_UI_WindowsAndMessaging"] }
+
+[build-dependencies]
+
+# WebView2 COM (te same wersje co w wry): RasterizationScale = skala okna, bez mnożnika
+# „powiększenie tekstu” Windows – inaczej układ 1280×800 rozjeżdża się względem makiety.
+[target.'cfg(windows)'.dependencies.webview2-com]
+version = "0.39"
+[target.'cfg(windows)'.dependencies.windows-core]
+version = "0.62"

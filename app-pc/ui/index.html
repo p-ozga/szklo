@@ -1,0 +1,894 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<title>Szkło</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+/* Czcionki dołączone do aplikacji (OFL) – serwowane przez protokół szklo:// */
+@font-face{font-family:Inter;src:url(fonts/Inter.ttf) format('truetype');font-weight:100 900;font-display:block}
+@font-face{font-family:'Space Grotesk';src:url(fonts/SpaceGrotesk.ttf) format('truetype');font-weight:300 700;font-display:block}
+
+/* Tokeny – sekcja 11.3 scenariusza, wartości z makiety pc1-panel-modulow.dc.html */
+:root{
+  --tlo:#061214; --tekst:#EEF9FA; --tekst68:rgba(238,249,250,.68); --tekst60:rgba(238,249,250,.6); --tekst75:rgba(238,249,250,.75);
+  --akcent-jasny:#25E2F7; --akcent:#1FB8C9; --we:#1998A6; --gr:#E9FCFE;
+}
+html,body{margin:0;height:100%;overflow:hidden;background:transparent}
+body{font-family:Inter,system-ui,sans-serif;color:var(--tekst);-webkit-user-select:none;user-select:none;-webkit-font-smoothing:antialiased}
+button{font:inherit;cursor:default}
+a{color:#25E2F7}a:hover{color:#1FB8C9}
+
+/* Okno = sam zaokrąglony panel: okno systemowe jest przezroczyste, tło z plamami rysowane wewnątrz panelu
+   (pozycje plam = makieta przesunięta o lewy-górny róg panelu 40/30). */
+#okno{position:fixed;inset:0;overflow:hidden;background:transparent}
+.plama{position:absolute;border-radius:50%;pointer-events:none;z-index:-2}
+.p1{left:-160px;top:-190px;width:620px;height:620px;background:#13727D;filter:blur(120px);opacity:.75}
+.p2{right:-220px;bottom:-250px;width:700px;height:700px;background:#0D4D54;filter:blur(110px);opacity:.9}
+.p3{left:480px;top:290px;width:360px;height:360px;background:#1FB8C9;filter:blur(140px);opacity:.35}
+
+/* scena 3D do odwracania okna (jak w VVS-Kopia: 0→90°, zamiana stron, −90→0°) */
+#scena{position:absolute;inset:0;perspective:1900px;perspective-origin:50% 45%}
+#talia{position:absolute;inset:0;transform-origin:50% 50%}
+
+.panel{position:absolute;inset:0;box-sizing:border-box;border-radius:22px;overflow:hidden;isolation:isolate;
+  background:var(--tlo);border:1px solid rgba(255,255,255,.16);display:flex;flex-direction:column}
+/* szkło panelu: biel 6% nad tłem z plamami */
+.panel::before{content:'';position:absolute;inset:0;background:rgba(255,255,255,.06);z-index:-1;pointer-events:none}
+body.max .panel{border-radius:0;border-color:transparent}
+/* przyciski okna (zamknij, minimalizuj, maksymalizuj) – po lewej w nagłówku */
+.okno-btn{display:flex;gap:6px;margin-right:-4px}
+.okno-btn button{width:26px;height:26px;border-radius:50%;padding:0;display:flex;align-items:center;justify-content:center;
+  background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14);color:rgba(238,249,250,.68);transition:background 120ms,color 120ms,border-color 120ms}
+.okno-btn button:hover{background:rgba(37,226,247,.16);border-color:rgba(37,226,247,.40);color:#EEF9FA}
+.okno-btn button.zamknij:hover{background:#C9491E;border-color:#C9491E;color:#fff}
+.okno-btn svg{width:12px;height:12px;display:block}
+.okno-btn .ikona-przywroc{display:none}
+body.max .okno-btn .ikona-max{display:none}
+body.max .okno-btn .ikona-przywroc{display:block}
+.panel[hidden]{display:none}
+.naglowek{display:flex;align-items:center;gap:16px;padding:18px 24px;border-bottom:1px solid rgba(255,255,255,.10)}
+.logo{width:26px;height:26px;display:block;flex-shrink:0;border-radius:6px;outline:none}
+.logo:focus-visible{box-shadow:0 0 0 2px rgba(37,226,247,.6)}
+.tytul{font-family:'Space Grotesk',sans-serif;font-size:20px;font-weight:600;letter-spacing:.2px}
+.pod{font-size:13px;color:var(--tekst68)}
+.spacer{flex-grow:1}
+.btn-szklo{font-size:13px;color:#EEF9FA;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);border-radius:999px;padding:8px 16px;min-height:36px}
+.btn-szklo:active,.btn-szklo.wcisniety{background:rgba(255,255,255,.16)}
+#btnWl{font-size:13px;font-weight:600;color:#061214;background:#25E2F7;border:0;border-radius:999px;padding:8px 18px;min-height:36px}
+#btnWl.wyl{color:#EEF9FA;background:transparent;border:1px solid rgba(255,255,255,.18);padding:7px 17px}
+button:focus-visible{outline:2px solid rgba(37,226,247,.7);outline-offset:2px}
+
+.tresc{display:flex;gap:20px;padding:20px 24px;flex-grow:1;min-height:0}
+.lewa{width:280px;display:flex;flex-direction:column;gap:16px;flex-shrink:0}
+.karta{border-radius:16px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12)}
+/* mrożone szkło (akryl Windows pod oknem): tło panelu ~15% przezroczyste, karty nieprzezroczyste */
+body.akryl .panel{background:rgba(6,18,20,.85);border-radius:8px}
+body.akryl .plama{opacity:.35}
+body.akryl .karta{background:#0E2427}
+body.akryl.max .panel{border-radius:0}
+.etykieta{font-size:12px;text-transform:uppercase;letter-spacing:1px;color:var(--tekst60)}
+.preset-nazwa{font-family:'Space Grotesk',sans-serif;font-size:22px;font-weight:600;margin-top:6px}
+.chipy{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
+.chip{font-size:12px;padding:6px 10px;border-radius:999px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14);color:var(--tekst);line-height:normal}
+.chip.aktywny{background:rgba(37,226,247,.16);border:1px solid rgba(37,226,247,.4)}
+
+.poziomy{padding:18px;display:flex;flex-direction:column;gap:14px;flex-grow:1}
+.mierniki{display:flex;gap:18px;align-items:flex-end;height:250px}
+.miernik{display:flex;flex-direction:column;align-items:center;gap:8px;height:100%}
+.tor{flex-grow:1;width:14px;border-radius:7px;background:rgba(255,255,255,.08);display:flex;flex-direction:column;justify-content:flex-end;overflow:hidden}
+.tor.odgory{justify-content:flex-start}
+.wyp{border-radius:7px;height:0%;will-change:height}
+.miernik span{font-size:11.5px;color:var(--tekst60)}
+.odczyty{display:flex;flex-direction:column;gap:10px;margin-left:6px}
+.duzy{font-family:'Space Grotesk',sans-serif;font-size:28px;font-weight:600;font-variant-numeric:tabular-nums}
+.sredni{font-family:'Space Grotesk',sans-serif;font-size:20px;font-weight:500;font-variant-numeric:tabular-nums}
+.podpis{font-size:12px;color:var(--tekst60)}
+
+.siatka{flex-grow:1;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;align-content:start}
+.grupa{padding:14px 16px;display:flex;flex-direction:column;gap:4px}
+.grupa-nagl{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:6px}
+.grupa-nagl b{font-family:'Space Grotesk',sans-serif;font-size:16px;font-weight:600}
+.grupa-nagl span{font-size:12px;color:var(--tekst60)}
+.wiersz{display:flex;align-items:center;gap:10px;min-height:34px}
+.przel{width:34px;height:20px;border-radius:999px;border:1px solid rgba(255,255,255,.22);background:rgba(255,255,255,.06);padding:2px;display:flex;justify-content:flex-start;align-items:center;flex-shrink:0;box-sizing:border-box;position:relative}
+.przel i{display:block;width:14px;height:14px;border-radius:50%;background:rgba(255,255,255,.5);transition:transform 120ms ease,width 120ms,height 120ms,background 120ms}
+.przel.wl{border:0;background:#1FB8C9}
+.przel.wl i{width:16px;height:16px;background:#F3FEFF;transform:translateX(14px)}
+.nazwa{font-size:13px;width:118px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rng{-webkit-appearance:none;appearance:none;height:4px;border-radius:4px;background:rgba(255,255,255,.14);outline:none;margin:0;flex-grow:1;min-width:0}
+.rng::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:#E9FCFE;border:2px solid #1FB8C9;box-shadow:0 0 10px rgba(37,226,247,.55)}
+.rng:disabled::-webkit-slider-thumb{background:#5d6f72;border-color:#3a4a4d;box-shadow:none}
+.rng:focus-visible::-webkit-slider-thumb{box-shadow:0 0 0 3px rgba(37,226,247,.45),0 0 10px rgba(37,226,247,.55)}
+.wart{font-size:12px;width:36px;text-align:right;color:var(--tekst75);font-variant-numeric:tabular-nums;flex-shrink:0}
+
+/* ---------- strona tylna ---------- */
+.tyl-tresc{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:20px;padding:20px 24px;flex-grow:1;min-height:0}
+.tyl-karta{padding:22px;display:flex;flex-direction:column;gap:12px}
+.tyl-karta h2{margin:0;font-family:'Space Grotesk',sans-serif;font-size:22px;font-weight:600}
+.tyl-karta p{margin:0;font-size:13px;line-height:1.55;color:var(--tekst68)}
+.pole{display:flex;flex-direction:column;gap:6px}
+.pole label{font-size:12px;color:var(--tekst60)}
+select{font:inherit;font-size:13px;color:var(--tekst);background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14);border-radius:10px;padding:8px 10px;outline:none}
+select option{background:#0d2326;color:var(--tekst)}
+.status{font-size:12px;color:var(--tekst60)}
+.status b{font-weight:600;color:var(--tekst)}
+.odtw{flex-grow:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;border:1px dashed rgba(255,255,255,.14);border-radius:14px;min-height:200px;text-align:center;padding:24px}
+.odtw svg{opacity:.85}
+[hidden]{display:none !important}
+.pr-pusto{font-size:13px;color:var(--tekst68)}
+/* ---------- wbudowany odtwarzacz (odwrót) ---------- */
+.ikona-btn{width:32px;height:32px;border-radius:50%;padding:0;display:inline-flex;align-items:center;justify-content:center;position:relative;
+  background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14);color:var(--tekst75);transition:background 120ms,color 120ms,border-color 120ms}
+.ikona-btn:hover:not(:disabled){background:rgba(37,226,247,.16);border-color:rgba(37,226,247,.4);color:#EEF9FA}
+.ikona-btn:disabled{opacity:.35}
+.ikona-btn svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.ikona-btn[aria-pressed="true"]{color:#25E2F7;border-color:rgba(37,226,247,.55)}
+.odtw-graj{width:40px;height:40px;background:#1FB8C9;border-color:#1FB8C9;color:#05181B}
+.odtw-graj:hover:not(:disabled){background:#25E2F7;color:#05181B}
+.odtw-graj svg{fill:currentColor;stroke:currentColor}
+.odtw-graj .ik-pauza,.odtw-karta.gra .odtw-graj .ik-graj{display:none}
+.odtw-karta.gra .odtw-graj .ik-pauza{display:block}
+.ik-mniej,.odtw-karta.duzy .ik-wieksz{display:none}
+.odtw-karta.duzy .ik-mniej{display:block}
+.odtw-jeden{position:absolute;right:2px;bottom:0;font-size:9px;font-weight:700;color:#25E2F7;display:none}
+.odtw-karta{gap:10px;min-height:0}
+.odtw-gora{display:flex;align-items:center;gap:6px}
+.odtw-tytul{font-family:'Space Grotesk',sans-serif;font-size:19px;font-weight:600;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:4px}
+.odtw-album{font-size:12px;color:var(--tekst60);text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:-6px}
+.odtw-postep{display:flex;align-items:center;gap:10px;font-size:11px;color:var(--tekst60);font-variant-numeric:tabular-nums}
+.odtw-postep input{flex:1;accent-color:#25E2F7;min-width:0}
+.odtw-przyciski{display:flex;justify-content:center;align-items:center;gap:14px}
+.odtw-wiz,.odtw-lista-nagl,.odtw-lista{display:none}
+.odtw-blad{font-size:12px;color:#F2A7A7;min-height:0}
+.odtw-karta.duzy{position:absolute;left:24px;right:24px;top:76px;bottom:20px;z-index:10;box-shadow:0 18px 60px rgba(0,0,0,.45)}
+.odtw-karta.duzy .odtw-wiz{display:flex;align-items:stretch;gap:18px;height:150px;flex-shrink:0}
+.odtw-karta.duzy .odtw-lista-nagl{display:flex;align-items:center;gap:8px;margin-top:6px}
+.odtw-karta.duzy .odtw-lista{display:block}
+.odtw-zegar{display:flex;align-items:center;gap:12px;padding:0 18px;border-radius:12px;background:rgba(0,0,0,.28);border:1px solid rgba(37,226,247,.18);
+  font-family:'Space Grotesk',sans-serif;font-size:56px;font-weight:600;letter-spacing:2px;color:#25E2F7;font-variant-numeric:tabular-nums;text-shadow:0 0 18px rgba(37,226,247,.45)}
+.odtw-znak{font-size:22px;color:#1FB8C9;text-shadow:none}
+.odtw-wiz canvas{flex:1;min-width:0;height:150px;border-radius:12px;background:rgba(0,0,0,.28);border:1px solid rgba(37,226,247,.18)}
+.odtw-lista{flex:1;min-height:0;overflow:auto;margin:0;padding:0;list-style:none;border-radius:12px;background:rgba(0,0,0,.18)}
+.odtw-lista li{display:grid;grid-template-columns:34px minmax(0,1fr) minmax(0,.7fr) 56px 28px;align-items:center;gap:8px;padding:7px 10px;font-size:13px;border-bottom:1px solid rgba(255,255,255,.05);cursor:default}
+.odtw-lista li:hover{background:rgba(37,226,247,.07)}
+.odtw-lista li.biezacy{background:rgba(31,184,201,.16);color:#25E2F7}
+.odtw-lista .nr,.odtw-lista .t{color:var(--tekst60);font-variant-numeric:tabular-nums;font-size:12px}
+.odtw-lista .t{text-align:right}
+.odtw-lista .tyt,.odtw-lista .wyk{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.odtw-lista .wyk{color:var(--tekst60)}
+.odtw-lista .usun{opacity:0;width:24px;height:24px}
+.odtw-lista li:hover .usun{opacity:1}
+.odtw-zakladki{display:flex;gap:4px;padding:3px;border-radius:999px;background:rgba(0,0,0,.25);border:1px solid rgba(255,255,255,.08)}
+.zakl{font-size:12px;font-weight:600;color:var(--tekst68);background:transparent;border:0;border-radius:999px;padding:6px 14px}
+.zakl[aria-selected="true"]{background:#1FB8C9;color:#05181B}
+.odtw-kolejka-akcje{display:flex;gap:8px;align-items:center}
+.sp-opis{font-size:12px;color:var(--tekst60);max-width:360px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sp-widok{flex:1;min-height:0;display:grid;grid-template-columns:300px minmax(0,1fr);gap:12px}
+.sp-widok[hidden]{display:none}
+.odtw-karta:not(.duzy) .sp-widok{display:none}
+.sp-playlisty li{grid-template-columns:minmax(0,1fr) 48px}
+.sp-playlisty li.otwarta{background:rgba(31,184,201,.16);color:#25E2F7}
+.sp-prawa{display:flex;flex-direction:column;gap:8px;min-height:0}
+.sp-prawa-nagl{display:flex;align-items:center;gap:8px;min-height:36px}
+.btn-obroc{width:30px;height:30px;margin-left:-6px}
+.btn-obroc svg{width:15px;height:15px}
+.btn-obroc:hover svg{transform:rotate(180deg);transition:transform 400ms}
+.odtw-tylko-duzy{display:none}
+.odtw-karta.duzy .odtw-tylko-duzy{display:inline-flex}
+/* MilkDrop: karta = czarne płótno pod osadzonym oknem programu; zostaje tylko „zmniejsz” */
+.odtw-karta.milk{background:#000 !important}
+.odtw-karta.milk > *:not(.odtw-gora){visibility:hidden}
+.odtw-karta.milk .odtw-gora > *:not(#odtwPowieksz){visibility:hidden}
+.odtw-pusto{padding:24px;text-align:center;color:var(--tekst60);font-size:13px}
+.lic-skrot{font-size:11.5px !important;line-height:1.5 !important}
+.lic-nakladka{position:absolute;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;padding:28px;background:rgba(4,14,16,.55);backdrop-filter:blur(6px)}
+.lic-okno{width:100%;max-width:980px;height:100%;display:flex;flex-direction:column;gap:12px;padding:22px}
+.lic-nagl{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.lic-nagl h2{margin:0;font-family:'Space Grotesk',sans-serif;font-size:22px;font-weight:600}
+.lic-nagl a.btn-szklo{text-decoration:none}
+.lic-tekst{flex:1;min-height:0;overflow:auto;margin:0;white-space:pre-wrap;font-family:Consolas,monospace;font-size:12px;line-height:1.55;color:var(--tekst68);-webkit-user-select:text;user-select:text}
+.tyl-lewa{display:flex;flex-direction:column;gap:20px;min-height:0}
+.tyl-lewa .odtw{min-height:120px}
+.pr-nagl{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.pr-biezacy{font-family:'Space Grotesk',sans-serif;font-size:20px;font-weight:600}
+.pr-zmieniony{font-size:12px;color:#25E2F7}
+.pr-przyciski{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.pr-input{font:inherit;font-size:13px;color:var(--tekst);background:rgba(255,255,255,.06);border:1px solid rgba(37,226,247,.5);border-radius:10px;padding:8px 10px;outline:none;flex:1 1 200px;min-width:0}
+.pr-input::placeholder{color:var(--tekst60)}
+.pr-komunikat{font-size:12px;color:var(--tekst60);min-height:16px}
+.pr-komunikat.blad{color:#F2A7A7}
+.pr-lista{display:flex;gap:8px;flex-wrap:wrap}
+.btn-glowny{background:#1FB8C9;border-color:#1FB8C9;color:#05181B;font-weight:600}
+</style>
+</head>
+<body>
+<div id="okno">
+
+  <div id="scena"><div id="talia">
+    <!-- ================= PRZÓD: panel modułów ================= -->
+    <section class="panel" id="przod" aria-label="Panel modułów">
+      <div class="plama p1" aria-hidden="true"></div><div class="plama p2" aria-hidden="true"></div><div class="plama p3" aria-hidden="true"></div>
+      <div class="naglowek" data-przeciagnij>
+        <div class="okno-btn" aria-label="Okno">
+          <button type="button" class="zamknij" data-okno="hide" title="Zamknij (Szkło działa dalej w zasobniku; całkowite wyjście: menu zasobnika → Zakończ)" aria-label="Zamknij"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M3 3l6 6M9 3l-6 6"/></svg></button>
+          <button type="button" data-okno="min" title="Minimalizuj" aria-label="Minimalizuj"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M2.5 6h7"/></svg></button>
+          <button type="button" data-okno="maximize" title="Maksymalizuj / przywróć" aria-label="Maksymalizuj"><svg class="ikona-max" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="2.5" y="2.5" width="7" height="7" rx="1.2"/></svg><svg class="ikona-przywroc" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.2"><rect x="2" y="4" width="6" height="6" rx="1"/><path d="M4 4V3a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1H8"/></svg></button>
+        </div>
+        <svg class="logo" id="logo" tabindex="0" role="button" aria-label="Odwróć okno (O)" viewBox="0 0 24 24" fill="none" stroke="#25E2F7" stroke-width="1.8" stroke-linecap="round"><title>Odwróć okno (O)</title><path d="M3 12h2M7 8v8M11 5v14M15 8v8M19 11v2"/></svg>
+        <span class="tytul">Szkło</span>
+        <button type="button" class="ikona-btn btn-obroc" title="Obróć okno (klawisz O)" aria-label="Obróć okno"><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 15.5-6.2L21 8M21 3v5h-5M21 12a9 9 0 0 1-15.5 6.2L3 16M3 21v-5h5"/></svg></button>
+        <span class="pod" id="urzadzenie">Słuchawki Bluetooth · AAC · 44,1 kHz</span>
+        <div class="spacer"></div>
+        <span class="pod" id="sufit">Sufit −1,0 dBTP</span>
+        <button type="button" class="btn-szklo" id="btnPorownaj" title="Wciśnij i trzymaj, żeby usłyszeć oryginał (spacja)">Porównaj z oryginałem</button>
+        <button type="button" id="btnWl" aria-pressed="true">Włączone</button>
+      </div>
+
+      <div class="tresc">
+        <div class="lewa">
+          <div class="karta" style="padding:18px">
+            <div class="etykieta">Preset</div>
+            <div class="preset-nazwa" id="presetNazwa">Codzienny</div>
+            <div class="chipy" id="chipy"></div>
+          </div>
+          <div class="karta poziomy">
+            <div class="etykieta">Poziomy</div>
+            <div class="mierniki">
+              <div class="miernik"><div class="tor"><div class="wyp" id="mWe" style="background:#1998A6"></div></div><span>WE</span></div>
+              <div class="miernik"><div class="tor"><div class="wyp" id="mWy" style="background:#25E2F7"></div></div><span>WY</span></div>
+              <div class="miernik"><div class="tor odgory"><div class="wyp" id="mGr" style="background:#E9FCFE;opacity:.85"></div></div><span>GR</span></div>
+              <div class="odczyty">
+                <div><div class="duzy" id="oLufs">−∞</div><div class="podpis">LUFS, ostatnie 3 s</div></div>
+                <div><div class="sredni" id="oTp">−∞</div><div class="podpis">dBTP szczyt</div></div>
+                <div><div class="sredni" id="oGr">0,0 dB</div><div class="podpis">redukcja</div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="siatka" id="siatka"></div>
+      </div>
+    </section>
+
+    <!-- ================= TYŁ: odtwarzacze (później) + źródło dźwięku ================= -->
+    <section class="panel" id="tyl" hidden aria-label="Strona tylna">
+      <div class="plama p1" aria-hidden="true"></div><div class="plama p2" aria-hidden="true"></div><div class="plama p3" aria-hidden="true"></div>
+      <div class="naglowek" data-przeciagnij>
+        <div class="okno-btn" aria-label="Okno">
+          <button type="button" class="zamknij" data-okno="hide" title="Zamknij (Szkło działa dalej w zasobniku; całkowite wyjście: menu zasobnika → Zakończ)" aria-label="Zamknij"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M3 3l6 6M9 3l-6 6"/></svg></button>
+          <button type="button" data-okno="min" title="Minimalizuj" aria-label="Minimalizuj"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M2.5 6h7"/></svg></button>
+          <button type="button" data-okno="maximize" title="Maksymalizuj / przywróć" aria-label="Maksymalizuj"><svg class="ikona-max" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="2.5" y="2.5" width="7" height="7" rx="1.2"/></svg><svg class="ikona-przywroc" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.2"><rect x="2" y="4" width="6" height="6" rx="1"/><path d="M4 4V3a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1H8"/></svg></button>
+        </div>
+        <svg class="logo" tabindex="0" role="button" aria-label="Wróć do panelu modułów (O)" id="logoTyl" viewBox="0 0 24 24" fill="none" stroke="#25E2F7" stroke-width="1.8" stroke-linecap="round"><path d="M3 12h2M7 8v8M11 5v14M15 8v8M19 11v2"/></svg>
+        <span class="tytul">Szkło</span>
+        <button type="button" class="ikona-btn btn-obroc" title="Obróć okno (klawisz O)" aria-label="Obróć okno"><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 15.5-6.2L21 8M21 3v5h-5M21 12a9 9 0 0 1-15.5 6.2L3 16M3 21v-5h5"/></svg></button>
+        <span class="pod">Odtwarzacze i źródło dźwięku</span>
+        <div class="spacer"></div>
+        <button type="button" class="btn-szklo" id="btnPowrot">Wróć do modułów</button>
+      </div>
+      <div class="tyl-tresc">
+        <div class="tyl-lewa">
+        <div class="karta tyl-karta" id="kartaPresety">
+          <div class="etykieta">Presety</div>
+          <div class="pr-nagl"><span class="pr-biezacy" id="prBiezacy">Codzienny</span><span class="pr-zmieniony" id="prZmieniony" hidden>· zmieniony</span></div>
+          <div class="pr-przyciski" id="prPrzyciski">
+            <button type="button" class="btn-szklo" id="prZapisz">Zapisz</button>
+            <button type="button" class="btn-szklo" id="prZapiszJako">Zapisz jako…</button>
+            <button type="button" class="btn-szklo" id="prUsun">Usuń</button>
+          </div>
+          <div class="pr-przyciski" id="prNazwa" hidden>
+            <input class="pr-input" id="prPole" maxlength="40" placeholder="Nazwa presetu, np. Mój bas" aria-label="Nazwa presetu">
+            <button type="button" class="btn-szklo btn-glowny" id="prNazwaOk">Zapisz</button>
+            <button type="button" class="btn-szklo" id="prNazwaAnuluj">Anuluj</button>
+          </div>
+          <div class="pr-przyciski" id="prPotwierdz" hidden>
+            <span style="font-size:13px" id="prPotwierdzTekst"></span>
+            <button type="button" class="btn-szklo btn-glowny" id="prUsunOk">Usuń</button>
+            <button type="button" class="btn-szklo" id="prUsunAnuluj">Anuluj</button>
+          </div>
+          <div class="pr-komunikat" id="prKomunikat" role="status"></div>
+          <div class="etykieta" id="prListaEtykieta">Twoje presety</div>
+          <div class="pr-lista" id="prLista"></div>
+        </div>
+        <div class="karta tyl-karta odtw-karta" id="odtwKarta" style="flex-grow:1">
+          <div class="odtw-gora">
+            <div class="etykieta">Odtwarzacz</div>
+            <div class="spacer"></div>
+            <button type="button" class="ikona-btn" id="odtwZrodloPliki" title="Dodaj pliki z dysku" aria-label="Dodaj pliki z dysku"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+            <button type="button" class="ikona-btn" id="odtwZrodloFolder" title="Dodaj folder" aria-label="Dodaj folder"><svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></button>
+            <button type="button" class="ikona-btn" id="odtwSpotify" title="Spotify" aria-label="Spotify"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M7.5 10c3-1 6.5-.6 9 1M8 13.2c2.5-.7 5.2-.4 7.3.8M8.6 16.2c2-.5 4-.3 5.7.6"/></svg></button>
+            <button type="button" class="ikona-btn odtw-tylko-duzy" id="odtwMilk" title="Wizualizacja MilkDrop 3 (osobny program – trzeba go pobrać)" aria-label="Wizualizacja MilkDrop 3"><svg viewBox="0 0 24 24"><path d="M12 3l1.8 4.7L18.5 9l-4.7 1.8L12 15.5l-1.8-4.7L5.5 9l4.7-1.3zM18 15l.9 2.1L21 18l-2.1.9L18 21l-.9-2.1L15 18l2.1-.9z"/></svg></button>
+            <button type="button" class="ikona-btn" id="odtwPowieksz" title="Powiększ" aria-label="Powiększ odtwarzacz"><svg class="ik-wieksz" viewBox="0 0 24 24"><path d="M14 4h6v6M10 20H4v-6M20 4l-7 7M4 20l7-7"/></svg><svg class="ik-mniej" viewBox="0 0 24 24"><path d="M10 4v6H4M14 20v-6h6M4 4l6 6M20 20l-6-6"/></svg></button>
+          </div>
+          <div class="odtw-wiz" id="odtwWiz" aria-hidden="true">
+            <div class="odtw-zegar"><span class="odtw-znak" id="odtwZnak">■</span><span id="odtwZegar">00:00</span></div>
+            <canvas id="odtwWidmo" width="720" height="150"></canvas>
+          </div>
+          <div class="odtw-tytul" id="odtwTytul">Brak utworu</div>
+          <div class="odtw-album" id="odtwAlbum">Dodaj pliki przyciskiem +</div>
+          <div class="odtw-postep">
+            <span id="odtwPoz">0:00</span>
+            <input type="range" id="odtwSuwak" min="0" max="1000" value="0" aria-label="Pozycja w utworze">
+            <span id="odtwCzas">0:00</span>
+          </div>
+          <div class="odtw-przyciski">
+            <button type="button" class="ikona-btn" id="odtwLosowo" title="Losowo" aria-label="Losowo" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M3 7h3c4 0 6 10 10 10h4M17 14l3 3-3 3M3 17h3c1.5 0 2.7-1.4 3.7-3M13.3 10C14.3 8.4 15.5 7 17 7h3M17 4l3 3-3 3"/></svg></button>
+            <button type="button" class="ikona-btn" id="odtwPoprz" title="Poprzedni" aria-label="Poprzedni"><svg viewBox="0 0 24 24"><path d="M19 6l-8 6 8 6zM6 6v12"/></svg></button>
+            <button type="button" class="ikona-btn odtw-graj" id="odtwPP" title="Odtwarzaj / pauza" aria-label="Odtwarzaj"><svg class="ik-graj" viewBox="0 0 24 24"><path d="M8 5l11 7-11 7z"/></svg><svg class="ik-pauza" viewBox="0 0 24 24"><path d="M8 5v14M16 5v14"/></svg></button>
+            <button type="button" class="ikona-btn" id="odtwNast" title="Następny" aria-label="Następny"><svg viewBox="0 0 24 24"><path d="M5 6l8 6-8 6zM18 6v12"/></svg></button>
+            <button type="button" class="ikona-btn" id="odtwPowt" title="Powtarzanie: wyłączone" aria-label="Powtarzanie"><svg viewBox="0 0 24 24"><path d="M4 11V9a3 3 0 0 1 3-3h12l-3-3M20 13v2a3 3 0 0 1-3 3H5l3 3"/></svg><span class="odtw-jeden" id="odtwJeden">1</span></button>
+          </div>
+          <div class="odtw-lista-nagl" id="odtwListaNagl">
+            <div class="odtw-zakladki" role="tablist">
+              <button type="button" role="tab" class="zakl" id="zaklKolejka" aria-selected="true">Kolejka</button>
+              <button type="button" role="tab" class="zakl" id="zaklSpotify" aria-selected="false">Spotify</button>
+            </div>
+            <span class="etykieta" id="odtwListaTytul">Playlista</span>
+            <div class="spacer"></div>
+            <span class="odtw-kolejka-akcje" id="kolejkaAkcje">
+              <button type="button" class="btn-szklo" id="odtwDodaj2">Dodaj pliki</button>
+              <button type="button" class="btn-szklo" id="odtwFolder2">Dodaj folder</button>
+              <button type="button" class="btn-szklo" id="odtwWyczysc">Wyczyść</button>
+            </span>
+            <span class="odtw-kolejka-akcje" id="spAkcje" hidden>
+              <span class="sp-opis" id="spOpis"></span>
+              <button type="button" class="btn-szklo btn-glowny" id="spZaloguj">Zaloguj do Spotify</button>
+              <button type="button" class="btn-szklo" id="spWyloguj" hidden>Wyloguj</button>
+            </span>
+          </div>
+          <ol class="odtw-lista" id="odtwLista"></ol>
+          <div class="sp-widok" id="spWidok" hidden>
+            <ul class="odtw-lista sp-playlisty" id="spPlaylisty" aria-label="Playlisty Spotify"></ul>
+            <div class="sp-prawa">
+              <div class="sp-prawa-nagl"><span class="etykieta" id="spUtworyTytul">Wybierz playlistę</span><div class="spacer"></div>
+                <button type="button" class="btn-szklo btn-glowny" id="spGrajWszystko" hidden>Odtwórz całą</button></div>
+              <ol class="odtw-lista" id="spUtwory"></ol>
+            </div>
+          </div>
+          <div class="odtw-blad" id="odtwBlad" role="status"></div>
+        </div>
+        </div>
+        <div class="karta tyl-karta">
+          <div class="etykieta">Źródło dźwięku</div>
+          <div class="pole">
+            <label for="trybSel">Tryb pracy</label>
+            <select id="trybSel">
+              <option value="apo">Wtyczka w Equalizer APO (cały dźwięk systemu)</option>
+              <option value="app">Silnik w aplikacji (wejście → wyjście)</option>
+            </select>
+          </div>
+          <div class="pole" id="poleWe">
+            <label for="weSel">Wejście (np. CABLE Output albo urządzenie do przechwycenia)</label>
+            <select id="weSel"></select>
+          </div>
+          <div class="pole" id="poleWy">
+            <label for="wySel">Wyjście (słuchawki)</label>
+            <select id="wySel"></select>
+          </div>
+          <div class="status" id="status">Stan: <b>—</b></div>
+          <p>Tryb wtyczki wymaga zainstalowanego Equalizer APO i wtyczki <b style="font-weight:600;color:var(--tekst)">szklo_vst2.dll</b> (instrukcja: docs/equalizer_apo.md). Tryb aplikacji przetwarza dźwięk z wybranego wejścia, np. z wirtualnego kabla ustawionego jako domyślne wyjście systemu.</p>
+          <div class="spacer"></div>
+          <p class="lic-skrot">Szkło korzysta z cudzych elementów: czcionek Inter i Space Grotesk, bibliotek open source (m.in. librespot, Symphonia), WebView2 (Microsoft), Equalizer APO (Jonas Thedering) i – jeśli go pobierzesz – MilkDrop 3 (milkdrop2077). Spotify i VST to znaki towarowe ich właścicieli – Szkło nie jest z nimi powiązane.</p>
+          <button type="button" class="btn-szklo" id="btnLicencje">O programie i licencje</button>
+        </div>
+      </div>
+      <div class="lic-nakladka" id="licencje" hidden role="dialog" aria-modal="true" aria-labelledby="licTytul">
+        <div class="lic-okno karta">
+          <div class="lic-nagl">
+            <h2 id="licTytul">O programie i licencje</h2>
+            <div class="spacer"></div>
+            <button type="button" class="btn-szklo" data-lic="/dziennik.txt">Dziennik</button>
+            <button type="button" class="btn-szklo" data-lic="/licencje.txt">Elementy cudze</button>
+            <button type="button" class="btn-szklo" data-lic="/fonts/OFL-Inter.txt">Licencja Inter</button>
+            <button type="button" class="btn-szklo" data-lic="/fonts/OFL-SpaceGrotesk.txt">Licencja Space Grotesk</button>
+            <button type="button" class="btn-szklo btn-glowny" id="licZamknij">Zamknij</button>
+          </div>
+          <pre class="lic-tekst" id="licTekst">Wczytywanie…</pre>
+        </div>
+      </div>
+    </section>
+  </div></div>
+</div>
+
+<script>
+'use strict';
+const $ = s => document.querySelector(s);
+const wyslij = o => { try { window.ipc.postMessage(JSON.stringify(o)); } catch (e) { /* podgląd w przeglądarce */ } };
+if (new URLSearchParams(location.search).has('akryl')) document.body.classList.add('akryl');
+/* ---------- wbudowany odtwarzacz ---------- */
+const ODTW = { stan: null, duzy: false, szczyty: new Array(24).fill(0), widmo: new Array(24).fill(0), przeciaga: false };
+const mmss = s => { s = Math.max(0, Math.floor(s || 0)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
+function odtwRysuj() {
+  const s = ODTW.stan; if (!s) return;
+  const k = $('#odtwKarta');
+  k.classList.toggle('gra', !!s.gra);
+  const p = s.biezacy != null ? s.lista[s.biezacy] : null;
+  $('#odtwTytul').textContent = p ? p.tytul : 'Brak utworu';
+  $('#odtwAlbum').textContent = p ? [p.wykonawca, p.album].filter(Boolean).join(' · ') || ' ' : 'Dodaj pliki przyciskiem +';
+  $('#odtwPP').setAttribute('aria-label', s.gra ? 'Pauza' : 'Odtwarzaj');
+  $('#odtwLosowo').setAttribute('aria-pressed', s.losowo ? 'true' : 'false');
+  const pw = s.powtarzanie;
+  $('#odtwPowt').setAttribute('aria-pressed', pw !== 'wyl' ? 'true' : 'false');
+  $('#odtwPowt').title = 'Powtarzanie: ' + ({ wyl: 'wyłączone', wszystko: 'cała lista', jeden: 'jeden utwór' })[pw];
+  $('#odtwJeden').style.display = pw === 'jeden' ? 'block' : 'none';
+  $('#odtwBlad').textContent = s.blad || '';
+  $('#odtwListaTytul').textContent = `Playlista · ${s.lista.length} ${s.lista.length === 1 ? 'utwór' : 'utworów'} · ${mmss(s.lista.reduce((a, x) => a + (x.czas || 0), 0))}`;
+  const l = $('#odtwLista'); l.innerHTML = '';
+  if (!s.lista.length) { const d = document.createElement('div'); d.className = 'odtw-pusto'; d.textContent = 'Pusto – dodaj pliki albo cały folder z muzyką.'; l.appendChild(d); }
+  s.lista.forEach((x, i) => {
+    const li = document.createElement('li'); if (i === s.biezacy) li.className = 'biezacy';
+    li.innerHTML = `<span class="nr">${i + 1}.</span><span class="tyt"></span><span class="wyk"></span><span class="t">${x.czas ? mmss(x.czas) : ''}</span>`;
+    li.querySelector('.tyt').textContent = x.tytul; li.querySelector('.wyk').textContent = x.wykonawca;
+    const u = document.createElement('button'); u.type = 'button'; u.className = 'ikona-btn usun'; u.title = 'Usuń z listy'; u.setAttribute('aria-label', 'Usuń ' + x.tytul);
+    u.innerHTML = '<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+    u.addEventListener('click', e => { e.stopPropagation(); wyslij({ t: 'p_usun', i }); });
+    li.appendChild(u);
+    li.addEventListener('dblclick', () => wyslij({ t: 'p_graj', i }));
+    l.appendChild(li);
+  });
+  odtwPozycja(s.pozycja, s.gra);
+}
+function odtwPozycja(poz, gra) {
+  const s = ODTW.stan; if (!s) return;
+  s.pozycja = poz; s.gra = gra;
+  $('#odtwKarta').classList.toggle('gra', !!gra);
+  if (!s.czas && s.biezacy != null && s.lista[s.biezacy]) s.czas = s.lista[s.biezacy].czas || 0;
+  $('#odtwPoz').textContent = mmss(poz); $('#odtwCzas').textContent = mmss(s.czas);
+  $('#odtwZegar').textContent = (s.biezacy != null ? mmss(poz) : '0:00').padStart(5, '0');
+  $('#odtwZnak').textContent = gra ? '▶' : (s.biezacy != null && poz > 0 ? '❚❚' : '■');
+  if (!ODTW.przeciaga) $('#odtwSuwak').value = s.czas > 0 ? Math.round(1000 * poz / s.czas) : 0;
+}
+function odtwWidok(duzy) {
+  ODTW.duzy = duzy; $('#odtwKarta').classList.toggle('duzy', duzy);
+  $('#odtwPowieksz').title = duzy ? 'Zmniejsz' : 'Powiększ'; $('#odtwPowieksz').setAttribute('aria-label', duzy ? 'Zmniejsz odtwarzacz' : 'Powiększ odtwarzacz');
+  wyslij({ t: 'p_widok', duzy });
+  if (duzy) requestAnimationFrame(odtwKlatka);
+}
+/* analizator słupkowy: 24 pasma, szczyty opadają; kolory z palety (turkus → biel) */
+function odtwKlatka() {
+  if (!ODTW.duzy) return;
+  const c = $('#odtwWidmo'), r = c.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+  if (c.width !== Math.round(r.width * dpr)) { c.width = Math.round(r.width * dpr); c.height = Math.round(r.height * dpr); }
+  const g = c.getContext('2d'), W = c.width, H = c.height, n = ODTW.widmo.length, pad = 10 * dpr;
+  g.clearRect(0, 0, W, H);
+  const bw = (W - pad * 2) / n, seg = 5 * dpr, gap = 2 * dpr, rows = Math.floor((H - pad * 2) / (seg + gap));
+  for (let i = 0; i < n; i++) {
+    const v = ODTW.widmo[i];
+    ODTW.szczyty[i] = Math.max(v, ODTW.szczyty[i] - 0.012);
+    const lit = Math.round(v * rows), x = pad + i * bw + gap;
+    for (let k = 0; k < rows; k++) {
+      const y = H - pad - (k + 1) * (seg + gap) + gap, t = k / rows;
+      g.fillStyle = k < lit ? (t > .82 ? '#EEF9FA' : t > .55 ? '#7FEFFB' : '#1FB8C9') : 'rgba(37,226,247,.07)';
+      g.fillRect(x, y, bw - gap * 2, seg);
+    }
+    const pk = Math.round(ODTW.szczyty[i] * rows);
+    if (pk > 0) { g.fillStyle = '#25E2F7'; g.fillRect(x, H - pad - pk * (seg + gap) - gap, bw - gap * 2, 2 * dpr); }
+  }
+  requestAnimationFrame(odtwKlatka);
+}
+document.addEventListener('DOMContentLoaded', () => {
+  $('#odtwPowieksz').addEventListener('click', () => { if (MILK.on) milkStop(); else odtwWidok(!ODTW.duzy); });
+  for (const id of ['#odtwZrodloPliki', '#odtwDodaj2']) $(id).addEventListener('click', () => wyslij({ t: 'p_dodaj' }));
+  for (const id of ['#odtwZrodloFolder', '#odtwFolder2']) $(id).addEventListener('click', () => wyslij({ t: 'p_folder' }));
+  $('#odtwWyczysc').addEventListener('click', () => wyslij({ t: 'p_wyczysc' }));
+  $('#odtwPP').addEventListener('click', () => wyslij({ t: 'p_pp' }));
+  $('#odtwNast').addEventListener('click', () => wyslij({ t: 'p_nast' }));
+  $('#odtwPoprz').addEventListener('click', () => wyslij({ t: 'p_poprz' }));
+  $('#odtwLosowo').addEventListener('click', () => wyslij({ t: 'p_losowo', b: !(ODTW.stan && ODTW.stan.losowo) }));
+  $('#odtwPowt').addEventListener('click', () => {
+    const kol = { wyl: 'wszystko', wszystko: 'jeden', jeden: 'wyl' };
+    wyslij({ t: 'p_powt', v: kol[(ODTW.stan && ODTW.stan.powtarzanie) || 'wyl'] });
+  });
+  const su = $('#odtwSuwak');
+  su.addEventListener('input', () => { ODTW.przeciaga = true; const s = ODTW.stan; if (s) $('#odtwPoz').textContent = mmss(s.czas * su.value / 1000); });
+  su.addEventListener('change', () => { ODTW.przeciaga = false; const s = ODTW.stan; if (s && s.czas > 0) wyslij({ t: 'p_szukaj', s: s.czas * su.value / 1000 }); });
+  $('#odtwKarta').addEventListener('keydown', e => { if (e.key === 'Escape' && ODTW.duzy) { e.preventDefault(); e.stopPropagation(); odtwWidok(false); } });
+});
+/* ---------- MilkDrop 3 w karcie ---------- */
+const MILK = { on: false };
+function milkProstokat() {
+  const k = $('#odtwKarta').getBoundingClientRect(), g = $('.odtw-gora').getBoundingClientRect();
+  const y = g.bottom + 8;
+  return { x: k.left + 12, y, w: k.width - 24, h: k.bottom - y - 12 };
+}
+function milkStart() {
+  if (MILK.on) return;
+  MILK.on = true; $('#odtwKarta').classList.add('milk');
+  $('#odtwPowieksz').title = 'Zmniejsz (zamyka MilkDrop)';
+  wyslij({ t: 'md_start', ...milkProstokat() });
+}
+function milkStop(wyslijStop = true) {
+  if (!MILK.on) return;
+  MILK.on = false; $('#odtwKarta').classList.remove('milk');
+  $('#odtwPowieksz').title = 'Zmniejsz';
+  if (wyslijStop) wyslij({ t: 'md_stop' });
+}
+document.addEventListener('DOMContentLoaded', () => {
+  $('#odtwMilk').addEventListener('click', milkStart);
+  document.querySelectorAll('.btn-obroc').forEach(b => b.addEventListener('click', () => obroc()));
+});
+/* ---------- Spotify w odtwarzaczu ---------- */
+const SP = { stan: null, zakladka: 'kolejka' };
+function zakladka(z) {
+  SP.zakladka = z;
+  $('#zaklKolejka').setAttribute('aria-selected', z === 'kolejka'); $('#zaklSpotify').setAttribute('aria-selected', z === 'spotify');
+  $('#odtwLista').hidden = z !== 'kolejka'; $('#kolejkaAkcje').hidden = z !== 'kolejka';
+  $('#spWidok').hidden = z !== 'spotify'; $('#spAkcje').hidden = z !== 'spotify';
+  $('#odtwListaTytul').hidden = z !== 'kolejka';
+  if (z === 'spotify') spRysuj();
+}
+function spWiersz(nr, tyt, wyk, czas) {
+  const li = document.createElement('li');
+  li.innerHTML = `<span class="nr">${nr}</span><span class="tyt"></span><span class="wyk"></span><span class="t">${czas}</span><span></span>`;
+  li.querySelector('.tyt').textContent = tyt; li.querySelector('.wyk').textContent = wyk;
+  return li;
+}
+function spRysuj() {
+  const s = SP.stan; if (!s) return;
+  const zal = s.status === 'gotowe';
+  $('#spZaloguj').hidden = zal || s.status === 'laczenie' || s.status === 'login';
+  $('#spWyloguj').hidden = !zal;
+  $('#spOpis').textContent = zal ? `${s.konto}${s.opis ? ' · ' + s.opis : ''}` : (s.opis || 'Odtwarzaj Spotify (Premium) przez Szkło – bez drugiego programu.');
+  const pl = $('#spPlaylisty'); pl.innerHTML = '';
+  if (!zal) { const d = document.createElement('div'); d.className = 'odtw-pusto'; d.textContent = s.status === 'login' ? 'Dokończ logowanie w przeglądarce…' : s.status === 'laczenie' ? 'Łączenie…' : 'Zaloguj się, żeby zobaczyć swoje playlisty.'; pl.appendChild(d); }
+  for (const p of s.playlisty || []) {
+    const li = document.createElement('li'); if (p.uri === s.otwarta) li.className = 'otwarta';
+    li.innerHTML = '<span class="tyt"></span><span class="t"></span>';
+    li.querySelector('.tyt').textContent = p.nazwa || '(bez nazwy)'; li.querySelector('.t').textContent = p.ile || '';
+    li.tabIndex = 0;
+    li.addEventListener('click', () => wyslij({ t: 'sp_playlista', uri: p.uri }));
+    li.addEventListener('keydown', e => { if (e.key === 'Enter') wyslij({ t: 'sp_playlista', uri: p.uri }); });
+    pl.appendChild(li);
+  }
+  const otw = (s.playlisty || []).find(p => p.uri === s.otwarta);
+  $('#spUtworyTytul').textContent = otw ? `${otw.nazwa} · ${s.utwory.length} utworów` : (zal ? 'Wybierz playlistę' : '');
+  $('#spGrajWszystko').hidden = !s.utwory.length;
+  const ul = $('#spUtwory'); ul.innerHTML = '';
+  if (s.wczytywanie) { const d = document.createElement('div'); d.className = 'odtw-pusto'; d.textContent = 'Wczytywanie utworów…'; ul.appendChild(d); }
+  s.utwory.forEach((u, i) => {
+    const li = spWiersz(i + 1 + '.', u.tytul, u.wykonawca, mmss(u.czas));
+    li.title = 'Dwuklik: odtwórz od tego utworu';
+    li.addEventListener('dblclick', () => { wyslij({ t: 'sp_graj', i }); });
+    ul.appendChild(li);
+  });
+}
+document.addEventListener('DOMContentLoaded', () => {
+  $('#zaklKolejka').addEventListener('click', () => zakladka('kolejka'));
+  $('#zaklSpotify').addEventListener('click', () => zakladka('spotify'));
+  $('#odtwSpotify').addEventListener('click', () => { if (!ODTW.duzy) odtwWidok(true); zakladka('spotify'); });
+  $('#spZaloguj').addEventListener('click', () => wyslij({ t: 'sp_zaloguj' }));
+  $('#spWyloguj').addEventListener('click', () => wyslij({ t: 'sp_wyloguj' }));
+  $('#spGrajWszystko').addEventListener('click', () => { wyslij({ t: 'sp_graj', i: 0 }); zakladka('kolejka'); });
+});
+/* ---------- O programie i licencje (cudze elementy – wyraźnie podpisane) ---------- */
+async function licPokaz(url) {
+  const t = $('#licTekst');
+  try { const r = await fetch(url); t.textContent = r.ok ? await r.text() : 'Nie udało się wczytać ' + url; }
+  catch (e) { t.textContent = 'Nie udało się wczytać ' + url; }
+  t.scrollTop = 0;
+}
+function licOtworz() { $('#licencje').hidden = false; licPokaz('/licencje.txt'); $('#licZamknij').focus(); }
+function licZamknij() { $('#licencje').hidden = true; $('#btnLicencje').focus(); }
+document.addEventListener('DOMContentLoaded', () => {
+  $('#btnLicencje').addEventListener('click', licOtworz);
+  $('#licZamknij').addEventListener('click', licZamknij);
+  document.querySelectorAll('[data-lic]').forEach(b => b.addEventListener('click', () => licPokaz(b.dataset.lic)));
+  $('#licencje').addEventListener('keydown', e => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); licZamknij(); } });
+});
+const pl = (x, d=1) => (x < 0 ? '−' : '') + Math.abs(x).toFixed(d).replace('.', ',');
+
+/* Katalog – kolejność i nazwy dokładnie jak w sekcji 11.4; indeksy = core/src/catalog.rs */
+const GRUPY = [
+  ['Naprawa',  [[0,'Declipper'],[1,'Naprawa MP3'],[2,'Szum i brum'],[3,'Dehummer'],[4,'Dekwantyzer'],[5,'Bramka szumów']]],
+  ['Dynamika', [[6,'AGC'],[7,'Multiband 1'],[8,'Multiband 2'],[9,'Kompresor'],[10,'Punch']]],
+  ['Bas',      [[11,'Głęboki bas'],[12,'Bas harmoniczny'],[13,'Bass Boost'],[14,'Ciepły bas']]],
+  ['Barwa',    [[15,'Auto EQ'],[16,'Balans widma']]],
+  ['Stereo',   [[17,'Szerokość'],[18,'Rotacja fazy']]],
+  ['Wyjście',  [[19,'Clipper HD'],[20,'Pre-limiter'],[21,'Prosty clipper'],[22,'Hard Limit']]],
+];
+/* Presety: stan wstępny (nadpisywany przez rdzeń przez szklo.stan) */
+let PRESETY = [
+  {key:'codzienny', name:'Codzienny'}, {key:'noc', name:'Noc'}, {key:'stare', name:'Stare nagrania'}, {key:'tramwaj', name:'Głośno w tramwaju'}
+];
+const S = { on: Array(23).fill(false), val: Array(23).fill(0), presetVal: Array(23).fill(0), presetOn: Array(23).fill(false),
+            preset: 'codzienny', wlaczone: true };
+/* wartości startowe z makiety (renderVals) – zastępowane stanem z rdzenia */
+[[0,60,1],[1,45,1],[6,70,1],[7,55,1],[9,20,1],[10,40,1],[11,35,1],[12,50,1],[14,30,1],[15,60,1],[16,25,1],[17,40,1],[18,100,1],[19,65,1],[22,100,1]]
+  .forEach(([i,v,o]) => { S.on[i]=!!o; S.val[i]=v; S.presetVal[i]=v; S.presetOn[i]=!!o; });
+
+/* ---------- budowa siatki ---------- */
+const wiersze = [];
+function zbuduj() {
+  const siatka = $('#siatka'); siatka.innerHTML = '';
+  for (const [gname, mods] of GRUPY) {
+    const k = document.createElement('div'); k.className = 'karta grupa';
+    k.innerHTML = `<div class="grupa-nagl"><b>${gname}</b><span></span></div>`;
+    const licznik = k.querySelector('span');
+    for (const [i, n] of mods) {
+      const w = document.createElement('div'); w.className = 'wiersz';
+      w.innerHTML = `<button type="button" class="przel" aria-label="${n} włącz/wyłącz"><i></i></button>`+
+        `<span class="nazwa" title="${n}">${n}</span>`+
+        `<input class="rng" type="range" min="0" max="100" step="0.1" aria-label="${n} moc">`+
+        `<span class="wart"></span>`;
+      const przel = w.querySelector('.przel'), rng = w.querySelector('.rng'), wart = w.querySelector('.wart');
+      wiersze[i] = { przel, rng, wart, licznik, mods };
+      przel.addEventListener('click', () => { S.on[i] = !S.on[i]; odswiezWiersz(i); wyslijModul(i); });
+      podepnijSuwak(i, rng);
+      k.appendChild(w);
+    }
+    siatka.appendChild(k);
+  }
+  for (let i = 0; i < 23; i++) odswiezWiersz(i);
+}
+function fmtProc(v) { return (Math.abs(v - Math.round(v)) < 1e-6 ? Math.round(v).toString() : v.toFixed(1).replace('.', ',')) + '%'; }
+function odswiezWiersz(i) {
+  const w = wiersze[i]; if (!w) return;
+  const on = S.on[i];
+  w.przel.classList.toggle('wl', on); w.przel.setAttribute('aria-pressed', on ? 'true' : 'false');
+  w.rng.disabled = !on; w.rng.value = S.val[i];
+  w.rng.setAttribute('aria-valuetext', on ? fmtProc(S.val[i]) : 'wyłączony');
+  w.wart.textContent = on ? fmtProc(S.val[i]) : '–';
+  const ile = w.mods.filter(([j]) => S.on[j]).length;
+  w.licznik.textContent = ile + ' z ' + w.mods.length;
+  if (i === 22) odswiezSufit();
+}
+/* Hard Limit wyłączony = sufit true-peak nie jest pilnowany (spec v1 §4.23: GUI ma to sygnalizować) */
+let sufitDb = -1;
+function odswiezSufit() {
+  const el = $('#sufit'), hl = S.on[22];
+  el.textContent = hl ? 'Sufit ' + pl(sufitDb) + ' dBTP' : 'Sufit wyłączony';
+  el.title = hl ? '' : 'Hard Limit jest wyłączony – sufit true-peak nie jest pilnowany';
+}
+let ostWysylka = new Map();
+function wyslijModul(i) { wyslij({ t: 'mod', i, on: S.on[i], a: S.val[i] / 100 }); poZmianieSuwaka(); }
+
+/* Suwak: krok 1; Shift = 10; Ctrl = 0,1; podwójny klik = wartość presetu; strzałki ±1 (Shift ±10); kółko */
+function podepnijSuwak(i, rng) {
+  let mod = 'n';
+  const krok = () => mod === 's' ? 10 : mod === 'c' ? 0.1 : 1;
+  const ustaw = v => {
+    const k = krok();
+    v = Math.min(100, Math.max(0, Math.round(v / k) * k));
+    v = Math.round(v * 10) / 10;
+    if (v === S.val[i]) { rng.value = v; return; }
+    S.val[i] = v; odswiezWiersz(i); wyslijModul(i);
+  };
+  rng.addEventListener('pointerdown', e => { mod = e.ctrlKey ? 'c' : e.shiftKey ? 's' : 'n'; });
+  rng.addEventListener('input', () => ustaw(parseFloat(rng.value)));
+  rng.addEventListener('dblclick', () => { S.val[i] = S.presetVal[i]; odswiezWiersz(i); wyslijModul(i); });
+  rng.addEventListener('keydown', e => {
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+      e.preventDefault(); mod = 'n';
+      const d = (e.shiftKey ? 10 : 1) * (e.key === 'ArrowLeft' || e.key === 'ArrowDown' ? -1 : 1);
+      ustaw(S.val[i] + d);
+    }
+  });
+  rng.addEventListener('wheel', e => {
+    if (rng.disabled) return;
+    e.preventDefault();
+    mod = e.ctrlKey ? 'c' : e.shiftKey ? 's' : 'n';
+    const d = (e.deltaY < 0 || e.deltaX < 0 ? 1 : -1) * krok();
+    ustaw(S.val[i] + d);
+  }, { passive: false });
+}
+
+/* ---------- presety ---------- */
+function zbudujChipy() {
+  const c = $('#chipy'); c.innerHTML = '';
+  for (const p of PRESETY) {
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'chip' + (p.key === S.preset ? ' aktywny' : '');
+    b.textContent = p.name; b.setAttribute('aria-pressed', p.key === S.preset ? 'true' : 'false');
+    b.addEventListener('click', () => wybierzPreset(p.key));
+    c.appendChild(b);
+  }
+  const akt = PRESETY.find(p => p.key === S.preset);
+  $('#presetNazwa').textContent = akt ? akt.name : 'Własny';
+  odswiezKartePresetow();
+}
+
+/* ---------- karta presetów (tył): Zapisz / Zapisz jako / Usuń ---------- */
+function zmieniony() {
+  const p = PRESETY.find(x => x.key === S.preset);
+  if (!p || !p.mods) return true;
+  for (let i = 0; i < 23; i++) {
+    if (!!p.mods[i][0] !== !!S.on[i] || Math.abs(p.mods[i][1] * 100 - S.val[i]) > 0.5) return true;
+  }
+  return false;
+}
+function prTryb(t) { $('#prPrzyciski').hidden = t !== 'normalny'; $('#prNazwa').hidden = t !== 'nazwa'; $('#prPotwierdz').hidden = t !== 'usun'; }
+function odswiezKartePresetow() {
+  const akt = PRESETY.find(p => p.key === S.preset), user = !!(akt && akt.user);
+  $('#prBiezacy').textContent = (akt ? akt.name : 'Własny') + (user ? '' : ' (wbudowany)');
+  const zm = zmieniony();
+  $('#prZmieniony').hidden = !zm;
+  $('#prZapisz').hidden = !user; $('#prUsun').hidden = !user;
+  $('#prZapisz').classList.toggle('btn-glowny', user && zm);
+  $('#prZapiszJako').classList.toggle('btn-glowny', !user && zm);
+  const wlasne = PRESETY.filter(p => p.user), l = $('#prLista'); l.innerHTML = '';
+  $('#prListaEtykieta').hidden = !wlasne.length;
+  if (!wlasne.length) { const t = document.createElement('span'); t.className = 'pr-pusto'; t.textContent = 'Nie masz jeszcze własnych presetów – ustaw moduły i kliknij „Zapisz jako…”.'; l.appendChild(t); }
+  for (const p of wlasne) {
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'chip' + (p.key === S.preset ? ' aktywny' : '');
+    b.textContent = p.name; b.setAttribute('aria-pressed', p.key === S.preset ? 'true' : 'false');
+    b.addEventListener('click', () => { prKomunikat(''); prTryb('normalny'); wybierzPreset(p.key); });
+    l.appendChild(b);
+  }
+}
+let prTimer = null;
+function prKomunikat(t, ok = true) {
+  const k = $('#prKomunikat'); k.textContent = t; k.classList.toggle('blad', !ok);
+  clearTimeout(prTimer); if (t && ok) prTimer = setTimeout(() => { k.textContent = ''; }, 5000);
+}
+let odswiezPresetyT = 0;
+function poZmianieSuwaka() { cancelAnimationFrame(odswiezPresetyT); odswiezPresetyT = requestAnimationFrame(odswiezKartePresetow); }
+$('#prZapisz').addEventListener('click', () => wyslij({ t: 'preset_save' }));
+$('#prZapiszJako').addEventListener('click', () => {
+  const akt = PRESETY.find(p => p.key === S.preset);
+  $('#prPole').value = akt && akt.user ? akt.name : ''; prKomunikat(''); prTryb('nazwa'); $('#prPole').focus(); $('#prPole').select();
+});
+const prZatwierdz = () => wyslij({ t: 'preset_save_as', name: $('#prPole').value });
+$('#prNazwaOk').addEventListener('click', prZatwierdz);
+$('#prPole').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); prZatwierdz(); } else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); prTryb('normalny'); } });
+$('#prNazwaAnuluj').addEventListener('click', () => prTryb('normalny'));
+$('#prUsun').addEventListener('click', () => {
+  const akt = PRESETY.find(p => p.key === S.preset); if (!akt) return;
+  $('#prPotwierdzTekst').textContent = `Usunąć „${akt.name}”? Ustawienia zostaną.`; prKomunikat(''); prTryb('usun');
+});
+$('#prUsunOk').addEventListener('click', () => { wyslij({ t: 'preset_delete', key: S.preset }); prTryb('normalny'); });
+$('#prUsunAnuluj').addEventListener('click', () => prTryb('normalny'));
+let animPresetu = null;
+function wybierzPreset(key) {
+  const p = PRESETY.find(x => x.key === key); if (!p || !p.mods) { wyslij({ t: 'preset', key }); return; }
+  S.preset = key; zbudujChipy();
+  const od = S.val.slice(), cel = p.mods.map(m => m[1] * 100);
+  for (let i = 0; i < 23; i++) { S.presetVal[i] = cel[i]; S.presetOn[i] = p.mods[i][0]; S.on[i] = p.mods[i][0]; }
+  const t0 = performance.now();
+  cancelAnimationFrame(animPresetu);
+  const krokAnim = t => {
+    const u = Math.min(1, (t - t0) / 150), e = u < .5 ? 2*u*u : 1 - Math.pow(-2*u + 2, 2) / 2;
+    for (let i = 0; i < 23; i++) { S.val[i] = Math.round((od[i] + (cel[i] - od[i]) * e) * 10) / 10; odswiezWiersz(i); }
+    wyslij({ t: 'all', on: S.on, a: S.val.map(v => v / 100), preset: key });
+    if (u < 1) animPresetu = requestAnimationFrame(krokAnim); else odswiezKartePresetow();
+  };
+  animPresetu = requestAnimationFrame(krokAnim);
+}
+
+/* ---------- przyciski nagłówka ---------- */
+const porownaj = on => { $('#btnPorownaj').classList.toggle('wcisniety', on); wyslij({ t: 'compare', on }); };
+$('#btnPorownaj').addEventListener('pointerdown', e => { e.preventDefault(); $('#btnPorownaj').setPointerCapture(e.pointerId); porownaj(true); });
+$('#btnPorownaj').addEventListener('pointerup', () => porownaj(false));
+$('#btnPorownaj').addEventListener('pointercancel', () => porownaj(false));
+$('#btnPorownaj').addEventListener('lostpointercapture', () => porownaj(false));
+function ustawWl(on) {
+  S.wlaczone = on; const b = $('#btnWl');
+  b.textContent = on ? 'Włączone' : 'Wyłączone'; b.classList.toggle('wyl', !on); b.setAttribute('aria-pressed', on ? 'true' : 'false');
+}
+$('#btnWl').addEventListener('click', () => { ustawWl(!S.wlaczone); wyslij({ t: 'enabled', on: S.wlaczone }); });
+
+/* ---------- przeciąganie okna i maksymalizacja (własny pasek tytułu) ---------- */
+document.querySelectorAll('[data-przeciagnij]').forEach(h => {
+  h.addEventListener('mousedown', e => {
+    if (e.button !== 0 || e.target.closest('button,select,input,.logo')) return;
+    if (e.detail === 2) { wyslij({ t: 'maximize' }); return; }
+    wyslij({ t: 'drag' });
+  });
+});
+/* przyciski okna: zamknij (do zasobnika), minimalizuj, maksymalizuj/przywróć */
+document.querySelectorAll('[data-okno]').forEach(b => {
+  b.addEventListener('click', () => wyslij({ t: b.dataset.okno }));
+});
+
+/* ---------- odwracanie okna ---------- */
+let naTyle = false, obraca = false;
+function obroc() {
+  if (obraca) return; obraca = true;
+  milkStop(); // osadzone okno MilkDrop nie obraca się razem z kartą
+  const talia = $('#talia'), dl = matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 560;
+  const zakoncz = () => { obraca = false; (naTyle ? $('#btnPowrot') : $('#logo')).focus({ preventScroll: true }); wyslij({ t: 'side', back: naTyle }); };
+  const zamien = () => { naTyle = !naTyle; $('#przod').hidden = naTyle; $('#tyl').hidden = !naTyle; };
+  if (!dl) { zamien(); zakoncz(); return; }
+  const kier = naTyle ? -1 : 1;
+  talia.animate([{ transform: 'rotateY(0deg) translateZ(0)' }, { transform: `rotateY(${90 * kier}deg) translateZ(-160px)` }],
+    { duration: dl, easing: 'cubic-bezier(.55,0,.85,.35)', fill: 'forwards' }).onfinish = () => {
+    zamien();
+    talia.animate([{ transform: `rotateY(${-90 * kier}deg) translateZ(-160px)` }, { transform: 'rotateY(0deg) translateZ(0)' }],
+      { duration: dl + 120, easing: 'cubic-bezier(.15,.65,.35,1)', fill: 'forwards' }).onfinish = zakoncz;
+  };
+}
+for (const el of [$('#logo'), $('#logoTyl')]) {
+  el.addEventListener('click', obroc);
+  el.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); obroc(); } });
+}
+$('#btnPowrot').addEventListener('click', obroc);
+
+/* ---------- skróty klawiszowe ---------- */
+let spacjaWcisnieta = false;
+document.addEventListener('keydown', e => {
+  /* suwak (input type=range) nie jest polem tekstowym: po jego użyciu fokus na nim zostaje, a skróty
+     O / E / 1–4 / spacja mają działać dalej (litery, cyfry i spacja nic na suwaku nie robią) */
+  const ae = document.activeElement;
+  const wPolu = !!ae && (/SELECT|TEXTAREA/.test(ae.tagName) || (ae.tagName === 'INPUT' && ae.type !== 'range'));
+  if (!wPolu && (e.key === 'o' || e.key === 'O')) { e.preventDefault(); obroc(); }
+  else if (e.key === 'Escape' && naTyle && !wPolu) {
+    if (!$('#licencje').hidden) licZamknij(); else if (MILK.on) milkStop(); else if (ODTW.duzy) odtwWidok(false); else obroc();
+  }
+  else if (!wPolu && e.code === 'Space' && !e.repeat && !naTyle && !/BUTTON/.test(document.activeElement?.tagName || '')) { e.preventDefault(); spacjaWcisnieta = true; porownaj(true); }
+  else if (!wPolu && (e.key === 'e' || e.key === 'E')) { $('#btnWl').click(); }
+  else if (!wPolu && /^[1-4]$/.test(e.key) && !naTyle) { const p = PRESETY[+e.key - 1]; if (p) wybierzPreset(p.key); }
+  else if ((e.ctrlKey && (e.key === 'w' || e.key === 'W'))) { e.preventDefault(); wyslij({ t: 'hide' }); }
+});
+document.addEventListener('keyup', e => { if (e.code === 'Space' && spacjaWcisnieta) { spacjaWcisnieta = false; porownaj(false); } });
+window.addEventListener('blur', () => { if (spacjaWcisnieta) { spacjaWcisnieta = false; porownaj(false); } });
+document.addEventListener('contextmenu', e => e.preventDefault());
+
+/* ---------- strona tylna: urządzenia ---------- */
+function wypelnij(sel, lista, wybrane) {
+  sel.innerHTML = '';
+  for (const n of lista) { const o = document.createElement('option'); o.value = n; o.textContent = n; if (n === wybrane) o.selected = true; sel.appendChild(o); }
+}
+$('#trybSel').addEventListener('change', () => { wyslij({ t: 'mode', mode: $('#trybSel').value }); pokazPola(); });
+$('#weSel').addEventListener('change', () => wyslij({ t: 'devices', input: $('#weSel').value, output: $('#wySel').value }));
+$('#wySel').addEventListener('change', () => wyslij({ t: 'devices', input: $('#weSel').value, output: $('#wySel').value }));
+function pokazPola() { const app = $('#trybSel').value === 'app'; $('#poleWe').style.display = app ? '' : 'none'; $('#poleWy').style.display = app ? '' : 'none'; }
+
+/* ---------- mierniki: 60 fps, opadanie 20 dB/s; odczyty 10 Hz ---------- */
+const M = { we: -120, wy: -120, gr: 0, lufs: -120, tp: -120, tWe: -120, tWy: -120, tGr: 0 };
+let ostOdczyt = 0, ostKlatka = performance.now();
+const proc = db => Math.max(0, Math.min(100, (db + 60) / 60 * 100));
+function klatka(t) {
+  const dt = Math.min(0.1, (t - ostKlatka) / 1000); ostKlatka = t;
+  M.we = Math.max(M.tWe, M.we - 20 * dt); M.wy = Math.max(M.tWy, M.wy - 20 * dt);
+  M.gr = M.tGr > M.gr ? M.tGr : Math.max(M.tGr, M.gr - 20 * dt);
+  $('#mWe').style.height = proc(M.we) + '%';
+  $('#mWy').style.height = proc(M.wy) + '%';
+  $('#mGr').style.height = Math.max(0, Math.min(100, M.gr / 20 * 100)) + '%';
+  if (t - ostOdczyt >= 100) {
+    ostOdczyt = t;
+    $('#oLufs').textContent = M.lufs <= -69.9 ? '−∞' : pl(M.lufs);
+    $('#oTp').textContent = M.tp <= -69.9 ? '−∞' : pl(M.tp);
+    $('#oGr').textContent = pl(Math.max(0, M.tGr)) + ' dB';
+  }
+  requestAnimationFrame(klatka);
+}
+
+/* ---------- API dla rdzenia (Rust → JS) ---------- */
+window.szklo = {
+  /** stan okna z Rust: zmaksymalizowane → bez zaokrągleń i obrysu */
+  okno(st) { document.body.classList.toggle('max', !!st.max); },
+  mierniki(m) { M.tWe = m.we; M.tWy = m.wy; M.tGr = m.gr; M.lufs = m.lufs; M.tp = m.tp;
+    if (M.tWe > M.we) M.we = M.tWe; if (M.tWy > M.wy) M.wy = M.tWy; },
+  stan(s) {
+    if (s.presets) PRESETY = s.presets;
+    if (s.on) S.on = s.on.slice();
+    if (s.a) S.val = s.a.map(v => Math.round(v * 1000) / 10);
+    if (s.preset !== undefined) S.preset = s.preset;
+    const p = PRESETY.find(x => x.key === S.preset);
+    if (p && p.mods) { S.presetVal = p.mods.map(m => m[1] * 100); S.presetOn = p.mods.map(m => m[0]); }
+    if (s.enabled !== undefined) ustawWl(s.enabled);
+    if (s.ceiling !== undefined) sufitDb = s.ceiling;
+    if (s.device) $('#urzadzenie').textContent = s.device;
+    zbudujChipy(); for (let i = 0; i < 23; i++) odswiezWiersz(i);
+  },
+  urzadzenia(d) {
+    if (d.mode) $('#trybSel').value = d.mode;
+    wypelnij($('#weSel'), d.inputs || [], d.input); wypelnij($('#wySel'), d.outputs || [], d.output); pokazPola();
+  },
+  odtw(s) { ODTW.stan = s; odtwRysuj(); },
+  odtwPoz(p, g) { odtwPozycja(p, g); },
+  milkStop(blad) { milkStop(false); if (blad) $('#odtwBlad').textContent = 'MilkDrop: ' + blad; },
+  milkPrzesun() { if (MILK.on) wyslij({ t: 'md_rect', ...milkProstokat() }); },
+  spotify(s) { SP.stan = s; if (SP.zakladka === 'spotify') spRysuj(); },
+  widmo(v) { ODTW.widmo = v; },
+  presetKomunikat(t, ok) {
+    prKomunikat(t, ok);
+    if (ok) prTryb('normalny');
+  },
+  status(t) { $('#status').innerHTML = 'Stan: <b></b>'; $('#status b').textContent = t; },
+  obroc,
+};
+
+zbuduj(); zbudujChipy(); pokazPola(); requestAnimationFrame(klatka);
+wyslij({ t: 'ready' });
+</script>
+</body>
+</html>

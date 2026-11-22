@@ -1,0 +1,10 @@
+[package]
+name = "szklo-core"
+version.workspace = true
+edition.workspace = true
+description = "Szkło – rdzeń DSP (wszystkie moduły, tor, mierniki)"
+
+[dependencies]
+rustfft = "6.2"
+
+[dev-dependencies]

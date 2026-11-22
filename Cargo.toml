@@ -1,0 +1,24 @@
+[workspace]
+resolver = "2"
+members = ["core", "cli", "plugin", "app-pc", "app-android/rust", "tools/vsthost"]
+default-members = ["core", "cli"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+authors = ["Pawel Ozga"]
+license = "MIT"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+debug = false
+
+[profile.dev.package."*"]
+opt-level = 2
+
+# Łatka crate vst 0.4.0: dane wtyczki pod AEffect.object zamiast pola hosta AEffect.user (Equalizer APO je nadpisuje).
+[patch.crates-io]
+vst = { path = "third_party/vst-0.4.0" }
+librespot-core = { path = "third_party/librespot-core-0.8.0" }

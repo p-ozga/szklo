@@ -1,0 +1,26 @@
+[package]
+name = "szklo-vst2"
+version.workspace = true
+edition.workspace = true
+description = "Szkło – wtyczka VST 2.4 dla Equalizer APO (cały dźwięk systemu). Equalizer APO nie obsługuje VST3."
+
+[lib]
+name = "szklo_vst2"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+szklo-core = { path = "../core" }
+# Implementacja ABI VST 2.4 w czystym Ruście (bez SDK Steinberga), licencja MIT.
+vst = "0.4"
+
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.58", features = [
+    "Win32_Foundation",
+    "Win32_Security",
+    "Win32_Security_Authorization",
+    "Win32_Storage_FileSystem",
+    "Win32_System_Pipes",
+    "Win32_System_IO",
+    "Win32_System_Threading",
+    "Win32_System_ProcessStatus",
+] }

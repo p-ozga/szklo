@@ -1,0 +1,10 @@
+[package]
+name = "szklo-vsthost"
+version.workspace = true
+edition.workspace = true
+description = "Test dymny wtyczki VST2: ładuje szklo_vst2.dll jak host (Equalizer APO), przetwarza WAV, sprawdza potok IPC"
+
+[dependencies]
+vst = "0.4"
+hound = "3.5"
+szklo-core = { path = "../../core" }

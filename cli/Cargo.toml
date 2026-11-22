@@ -1,0 +1,13 @@
+[package]
+name = "szklo-cli"
+version.workspace = true
+edition.workspace = true
+description = "Szkło – przetwarzanie offline plików WAV (pomiary, testy regresji)"
+
+[[bin]]
+name = "szklo-cli"
+path = "src/main.rs"
+
+[dependencies]
+szklo-core = { path = "../core" }
+hound = "3.5"

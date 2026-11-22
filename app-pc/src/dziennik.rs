@@ -45,10 +45,21 @@ fn dopisz(linia: &str) {
 
 impl log::Log for Dziennik {
     fn enabled(&self, m: &log::Metadata) -> bool {
+        // symphonia przy zaszyfrowanym/uszkodzonym strumieniu sypie tysiącami „skipping junk” – tylko błędy
+        if m.target().starts_with("symphonia") {
+            return m.level() <= log::Level::Error;
+        }
         m.level() <= log::Level::Info && !m.target().starts_with("wry") && !m.target().starts_with("tao")
     }
     fn log(&self, r: &log::Record) {
         if self.enabled(r.metadata()) {
+            // Spotify odmówił klucza utworu / nie odpowiedział – odtwarzacz ma się zatrzymać, a nie przeskakiwać dalej
+            if r.target().starts_with("librespot") && r.level() <= log::Level::Warn {
+                let t = r.args().to_string();
+                if t.contains("audio key") {
+                    crate::spotify_pc::odmowa_klucza();
+                }
+            }
             let _g = self.zapis.lock();
             dopisz(&format!("{:<5} [{}] {}", r.level(), r.target(), r.args()));
         }

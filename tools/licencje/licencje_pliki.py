@@ -16,7 +16,7 @@ PC = WSPOLNE + """• Microsoft Edge WebView2 Runtime – Microsoft Corporation;
 • Spotify to znak towarowy Spotify AB. Szkło nie jest powiązane ze Spotify ani przez nie wspierane. Odtwarzanie Spotify w Szkle działa dzięki librespot (librespot-org i współtwórcy, MIT) – nieoficjalnemu, otwartemu klientowi; wymaga konta Premium i działa na ryzyko użytkownika.
 • Wbudowany odtwarzacz: dekodowanie Symphonia (Philip Deljanov i współtwórcy, MPL-2.0), przeliczanie częstotliwości rubato (Henrik Enquist, MIT), widmo RustFFT (MIT/Apache-2.0), okno wyboru plików rfd (MIT).
 • Mrożone szkło okna: window-vibrancy (Tauri Programme within The Commons Conservancy, MIT/Apache-2.0).
-• MilkDrop 3 – osobny program autorstwa milkdrop2077 (Serge Blanc), oparty na BeatDrop (Maxim Volskiy) i MilkDrop 2 (Ryan Geiss / Nullsoft). Szkło go NIE zawiera ani nie rozpowszechnia: użytkownik pobiera go sam z github.com/milkdrop2077/MilkDrop3, a Szkło tylko uruchamia go i pokazuje jego okno w karcie odtwarzacza.
+• MilkDrop 3 – osobny program autorstwa milkdrop2077 (Serge Blanc), oparty na BeatDrop (Maxim Volskiy) i MilkDrop 2 (Ryan Geiss / Nullsoft). Kod MilkDrop 3 jest na licencji BSD-3 (Copyright (c) 2018 Maxim Volskiy and individual contributors). Szkło go NIE zawiera: na żądanie użytkownika (przycisk „Pobierz i zainstaluj”) pobiera oficjalny instalator autora z github.com/milkdrop2077/MilkDrop3/releases i go uruchamia, a potem tylko uruchamia program i pokazuje jego okno w karcie odtwarzacza. Instalator zawiera też presety wielu autorów – na ich warunkach.
 """
 
 ANDROID = WSPOLNE + """• Android Jetpack (AndroidX, Compose, Material 3) – Google LLC, Apache-2.0. Kotlin i kotlinx.coroutines – JetBrains s.r.o., Apache-2.0.

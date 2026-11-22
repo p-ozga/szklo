@@ -25,6 +25,7 @@ use symphonia::core::probe::Hint;
 use symphonia::core::units::Time;
 
 pub const PASMA: usize = 24;
+const ODMOWA: &str = "spotify: odmowa klucza";
 pub const ROZSZERZENIA: &[&str] = &["mp3", "flac", "ogg", "oga", "wav", "m4a", "aac", "mp4", "alac", "aiff", "aif"];
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
@@ -56,6 +57,8 @@ pub struct Stan {
     pub losowo: bool,
     pub powtarzanie: Powtarzanie,
     pub blad: Option<String>,
+    /// rośnie przy każdej zmianie LISTY – UI przebudowuje listę tylko wtedy (nie przy pauzie/przewijaniu)
+    pub wersja: u64,
 }
 
 #[derive(Serialize, Deserialize, Default)]
@@ -67,7 +70,8 @@ struct Zapis {
 }
 
 pub enum Rozkaz {
-    Dodaj(Vec<PathBuf>),
+    /// gotowe pozycje (pliki opisuje wątek okna wyboru – nie wątek odtwarzania, żeby dźwięk nie stawał)
+    Dodaj(Vec<Pozycja>),
     Graj(Option<usize>),
     Pauza,
     PlayPauza,
@@ -207,9 +211,20 @@ struct WlasneWyjscie {
     _stream: cpal::Stream,
     prod: HeapProd<f32>,
     fs: u32,
+    /// generacja domyślnego wyjścia Windows w chwili otwarcia – inna = urządzenie się zmieniło
+    gen: u32,
+    /// strumień zgłosił błąd (cpal kończy wtedy jego wątek na dobre) → trzeba otworzyć nowy
+    martwy: Arc<AtomicBool>,
+    /// pauza: wywołanie zwrotne oddaje ciszę i nie pobiera z bufora (natychmiastowa, bez „ogona” 0,5 s)
+    pauza: Arc<AtomicBool>,
 }
 
 fn otworz_wyjscie() -> Result<WlasneWyjscie, String> {
+    // generacja PRZED wyborem urządzenia: zmiana wyjścia w trakcie otwierania da różnicę i ponowne otwarcie
+    let gen = crate::apo_check::generacja();
+    let martwy = Arc::new(AtomicBool::new(false));
+    let pauza = Arc::new(AtomicBool::new(false));
+    let (martwy2, pauza2) = (martwy.clone(), pauza.clone());
     let dev = cpal::default_host().default_output_device().ok_or("brak domyślnego wyjścia")?;
     let cfg = dev.default_output_config().map_err(|e| e.to_string())?;
     if cfg.sample_format() != cpal::SampleFormat::F32 {
@@ -226,7 +241,9 @@ fn otworz_wyjscie() -> Result<WlasneWyjscie, String> {
                 let frames = data.len() / ch;
                 tmp.clear();
                 tmp.resize(frames * 2, 0.0);
-                let _ = cons.pop_slice(&mut tmp);
+                if !pauza2.load(Ordering::Relaxed) {
+                    let _ = cons.pop_slice(&mut tmp);
+                }
                 for (f, fr) in data.chunks_mut(ch).enumerate() {
                     if ch == 1 {
                         fr[0] = 0.5 * (tmp[2 * f] + tmp[2 * f + 1]);
@@ -239,12 +256,15 @@ fn otworz_wyjscie() -> Result<WlasneWyjscie, String> {
                     }
                 }
             },
-            |e| log::error!("odtwarzacz – strumień wyjścia: {e}"),
+            move |e| {
+                log::error!("odtwarzacz – strumień wyjścia: {e}");
+                martwy2.store(true, Ordering::Relaxed);
+            },
             None,
         )
         .map_err(|e| e.to_string())?;
     stream.play().map_err(|e| e.to_string())?;
-    Ok(WlasneWyjscie { _stream: stream, prod, fs })
+    Ok(WlasneWyjscie { _stream: stream, prod, fs, gen, martwy, pauza })
 }
 
 /// Dokąd idą próbki bieżącego utworu.
@@ -270,7 +290,23 @@ impl Cel {
     fn wolne(&mut self) -> Option<usize> {
         match self {
             Cel::Silnik(fs) => (audio::wstrzykniecie_fs() == Some(*fs)).then(audio::wstrzyknij_wolne).flatten(),
-            Cel::Wlasne(w) => Some(w.prod.vacant_len()),
+            // nowe domyślne wyjście (słuchawki, Bluetooth) → None = otwórz utwór na nowym urządzeniu
+            // …tak samo, gdy strumień padł albo ruszył silnik w aplikacji (wtedy próbki mają iść przez niego)
+            Cel::Wlasne(w) => (w.gen == crate::apo_check::generacja() && !w.martwy.load(Ordering::Relaxed) && audio::wstrzykniecie_fs().is_none())
+                .then(|| w.prod.vacant_len()),
+        }
+    }
+    /// Ile próbek czeka jeszcze na zagranie (tylko własny strumień; silnik – nieznane, 0).
+    fn zalega(&self) -> usize {
+        match self {
+            Cel::Silnik(_) => 0,
+            Cel::Wlasne(w) => w.prod.occupied_len(),
+        }
+    }
+    fn pauza(&self, b: bool) {
+        match self {
+            Cel::Silnik(_) => audio::wstrzyknij_pauza(b),
+            Cel::Wlasne(w) => w.pauza.store(b, Ordering::Relaxed),
         }
     }
     fn wypchnij(&mut self, s: &[f32]) -> usize {
@@ -380,6 +416,9 @@ impl Utwor {
             // Spotify: bierzemy, co librespot już zdekodował
             let st = crate::spotify_pc::strumien();
             let mut buf = Vec::with_capacity(8192);
+            if crate::spotify_pc::byla_odmowa() {
+                return Err(ODMOWA.into());
+            }
             let n = crate::spotify_pc::pobierz(&mut buf, 8192);
             if n == 0 {
                 if st.blad.load(Ordering::Relaxed) {
@@ -466,30 +505,33 @@ impl Utwor {
 
 // ───────────────────────────── widmo ─────────────────────────────
 
-struct Analizator {
+pub(crate) struct Analizator {
     fft: Arc<dyn rustfft::Fft<f32>>,
     okno: Vec<f32>,
     bufor: Vec<f32>,
+    robocze: Vec<rustfft::num_complex::Complex<f32>>,
     fs: u32,
 }
 
 const N_FFT: usize = 2048;
 
 impl Analizator {
-    fn new(fs: u32) -> Self {
+    pub(crate) fn new(fs: u32) -> Self {
         let mut pl = rustfft::FftPlanner::new();
         let okno = (0..N_FFT).map(|i| 0.5 - 0.5 * (2.0 * std::f32::consts::PI * i as f32 / N_FFT as f32).cos()).collect();
-        Self { fft: pl.plan_fft_forward(N_FFT), okno, bufor: Vec::with_capacity(N_FFT * 2), fs }
+        Self { fft: pl.plan_fft_forward(N_FFT), okno, bufor: Vec::with_capacity(N_FFT * 2), robocze: Vec::with_capacity(N_FFT), fs: fs.max(1) }
     }
-    fn dodaj(&mut self, stereo: &[f32], wynik: &Mutex<[f32; PASMA]>) {
+    pub(crate) fn dodaj(&mut self, stereo: &[f32], wynik: &Mutex<[f32; PASMA]>) {
         for fr in stereo.chunks(2) {
             self.bufor.push(0.5 * (fr[0] + fr.get(1).copied().unwrap_or(fr[0])));
         }
         // jedna analiza na ~1/30 s
-        let krok = (self.fs / 30) as usize;
+        let krok = ((self.fs / 30) as usize).max(1);
         while self.bufor.len() >= N_FFT.max(krok) {
-            let mut c: Vec<rustfft::num_complex::Complex<f32>> =
-                self.bufor[..N_FFT].iter().zip(&self.okno).map(|(x, w)| rustfft::num_complex::Complex::new(x * w, 0.0)).collect();
+            // bufor roboczy trzymany w strukturze – bez alokacji przy każdej analizie
+            let mut c = std::mem::take(&mut self.robocze);
+            c.clear();
+            c.extend(self.bufor[..N_FFT].iter().zip(&self.okno).map(|(x, w)| rustfft::num_complex::Complex::new(x * w, 0.0)));
             self.fft.process(&mut c);
             let mut pasma = [0.0f32; PASMA];
             // pasma logarytmiczne 40 Hz – 16 kHz
@@ -497,10 +539,16 @@ impl Analizator {
             for (b, p) in pasma.iter_mut().enumerate() {
                 let lo = f0 * (f1 / f0).powf(b as f32 / PASMA as f32);
                 let hi = f0 * (f1 / f0).powf((b + 1) as f32 / PASMA as f32);
-                let (ilo, ihi) = ((lo * N_FFT as f32 / self.fs as f32) as usize, ((hi * N_FFT as f32 / self.fs as f32) as usize).max(1));
+                // indeksy przycięte do 1…N/2−1: przy niskiej częstotliwości urządzenia (np. Bluetooth Hands-Free 8 kHz)
+                // górne pasma wypadają poza widmo – bez przycięcia byłby odczyt poza tablicą i koniec wątku
+                let max_k = N_FFT / 2 - 1;
+                let ilo = ((lo * N_FFT as f32 / self.fs as f32) as usize).clamp(1, max_k);
+                let ihi = ((hi * N_FFT as f32 / self.fs as f32) as usize).clamp(ilo, max_k);
                 let mut m = 0.0f32;
-                for k in ilo.max(1)..=ihi.min(N_FFT / 2 - 1).max(ilo.max(1)) {
-                    m = m.max(c[k].norm());
+                if hi < self.fs as f32 / 2.0 || lo < self.fs as f32 / 2.0 {
+                    for x in &c[ilo..=ihi] {
+                        m = m.max(x.norm());
+                    }
                 }
                 let db = 20.0 * (m * 4.0 / N_FFT as f32 + 1e-9).log10();
                 *p = ((db + 66.0) / 66.0).clamp(0.0, 1.0); // −66…0 dBFS → 0…1
@@ -508,6 +556,7 @@ impl Analizator {
             if let Ok(mut w) = wynik.lock() {
                 *w = pasma;
             }
+            self.robocze = c;
             self.bufor.drain(..krok.min(self.bufor.len()));
         }
     }
@@ -515,8 +564,8 @@ impl Analizator {
 
 // ───────────────────────────── pętla ─────────────────────────────
 
-fn zapisz(s: &Stan) {
-    let z = Zapis { lista: s.lista.clone(), biezacy: s.biezacy, losowo: s.losowo, powtarzanie: s.powtarzanie };
+/// Zapis playlisty na dysk – wołany POZA blokadą stanu (UI czyta stan 10×/s) i tylko po zmianie listy/trybu.
+fn zapisz(z: &Zapis) {
     let d = crate::settings::dir();
     let _ = std::fs::create_dir_all(&d);
     if let Ok(t) = serde_json::to_string_pretty(&z) {
@@ -542,8 +591,10 @@ fn losowy(n: usize, poza: Option<usize>) -> usize {
 fn petla(rx: Receiver<Rozkaz>, stan: Arc<Mutex<Stan>>, widmo: Arc<Mutex<[f32; PASMA]>>, zmiana: Arc<AtomicBool>) {
     let mut utwor: Option<(Utwor, Cel, Analizator)> = None;
     let mut zaleglosc: Vec<f32> = Vec::new();
-    let oznacz = |s: &Stan| {
-        zapisz(s);
+    // „brudne” = lista/tryb/bieżący utwór do zapisania na dysk (robione w wolnej chwili, poza blokadą)
+    let brudne = std::cell::Cell::new(false);
+    let mut bledy_pod_rzad = 0usize;
+    let oznacz = |_s: &Stan| {
         zmiana.store(true, Ordering::Relaxed);
     };
 
@@ -553,9 +604,23 @@ fn petla(rx: Receiver<Rozkaz>, stan: Arc<Mutex<Stan>>, widmo: Arc<Mutex<[f32; PA
             Some(s) => s,
             None => return false,
         };
-        *utwor = None;
+        // Ten sam strumień wyjścia dla kolejnego utworu (jeśli nadal ważny): końcówka poprzedniego dogrywa się
+        // z bufora, a nowy zaczyna się zaraz po niej – bez ucinania ostatnich 0,5 s i bez przerwy między utworami.
+        let stary = utwor.take().map(|(_, c, _)| c);
         zaleglosc.clear();
-        let wynik = Cel::wybierz().and_then(|cel| {
+        brudne.set(true);
+        let cel = match stary {
+            Some(mut c) => {
+                if c.wolne().is_some() {
+                    Ok(c)
+                } else {
+                    drop(c);
+                    Cel::wybierz()
+                }
+            }
+            None => Cel::wybierz(),
+        };
+        let wynik = cel.and_then(|cel| {
             let u = otworz_utwor(&sciezka, cel.fs())?;
             let fs = cel.fs();
             Ok((u, cel, Analizator::new(fs)))
@@ -622,10 +687,15 @@ fn petla(rx: Receiver<Rozkaz>, stan: Arc<Mutex<Stan>>, widmo: Arc<Mutex<[f32; PA
                 Err(_) => return,
             }
         };
+        if r.is_none() && brudne.replace(false) {
+            let z = stan.lock().ok().map(|s| Zapis { lista: s.lista.clone(), biezacy: s.biezacy, losowo: s.losowo, powtarzanie: s.powtarzanie });
+            if let Some(z) = z {
+                zapisz(&z);
+            }
+        }
         if let Some(r) = r {
             match r {
-                Rozkaz::Dodaj(sciezki) => {
-                    let nowe: Vec<Pozycja> = rozwin(sciezki).iter().map(|p| opisz(p)).collect();
+                Rozkaz::Dodaj(nowe) => {
                     log::info!("odtwarzacz: dodano {} plików", nowe.len());
                     let mut s = stan.lock().unwrap();
                     let bylo_pusto = s.lista.is_empty();
@@ -633,6 +703,8 @@ fn petla(rx: Receiver<Rozkaz>, stan: Arc<Mutex<Stan>>, widmo: Arc<Mutex<[f32; PA
                     if bylo_pusto && !s.lista.is_empty() {
                         s.biezacy = Some(0);
                     }
+                    s.wersja += 1;
+                    brudne.set(true);
                     oznacz(&s);
                 }
                 Rozkaz::Graj(i) => {
@@ -646,6 +718,10 @@ fn petla(rx: Receiver<Rozkaz>, stan: Arc<Mutex<Stan>>, widmo: Arc<Mutex<[f32; PA
                         s.gra = true;
                         oznacz(&s);
                     } else {
+                        // inny utwór wybrany ręcznie: bez dogrywania końcówki poprzedniego
+                        if let Some((_, cel, _)) = utwor.as_mut() {
+                            cel.wyczysc();
+                        }
                         start(i, &mut utwor, &mut zaleglosc);
                         oznacz(&stan.lock().unwrap());
                     }
@@ -714,11 +790,13 @@ fn petla(rx: Receiver<Rozkaz>, stan: Arc<Mutex<Stan>>, widmo: Arc<Mutex<[f32; PA
                 Rozkaz::Losowo(b) => {
                     let mut s = stan.lock().unwrap();
                     s.losowo = b;
+                    brudne.set(true);
                     oznacz(&s);
                 }
                 Rozkaz::Powtarzanie(p) => {
                     let mut s = stan.lock().unwrap();
                     s.powtarzanie = p;
+                    brudne.set(true);
                     oznacz(&s);
                 }
                 Rozkaz::Usun(i) => {
@@ -734,6 +812,8 @@ fn petla(rx: Receiver<Rozkaz>, stan: Arc<Mutex<Stan>>, widmo: Arc<Mutex<[f32; PA
                             Some(b) if b > i => s.biezacy = Some(b - 1),
                             _ => {}
                         }
+                        s.wersja += 1;
+                        brudne.set(true);
                         oznacz(&s);
                     }
                 }
@@ -745,6 +825,8 @@ fn petla(rx: Receiver<Rozkaz>, stan: Arc<Mutex<Stan>>, widmo: Arc<Mutex<[f32; PA
                         s.lista = lista;
                         s.biezacy = None;
                         s.gra = false;
+                        s.wersja += 1;
+                        brudne.set(true);
                         oznacz(&s);
                     }
                     start(i, &mut utwor, &mut zaleglosc);
@@ -758,9 +840,16 @@ fn petla(rx: Receiver<Rozkaz>, stan: Arc<Mutex<Stan>>, widmo: Arc<Mutex<[f32; PA
                     s.gra = false;
                     s.pozycja = 0.0;
                     s.czas = 0.0;
+                    s.wersja += 1;
+                    brudne.set(true);
                     oznacz(&s);
                 }
             }
+            // pauza/wznowienie działa od razu: wyjście oddaje ciszę i nie zjada bufora (zamiast grać jeszcze 0,5 s)
+            if let Some((_, cel, _)) = utwor.as_ref() {
+                cel.pauza(!stan.lock().map(|s| s.gra).unwrap_or(false));
+            }
+            bledy_pod_rzad = 0;
             continue;
         }
 
@@ -782,7 +871,9 @@ fn petla(rx: Receiver<Rozkaz>, stan: Arc<Mutex<Stan>>, widmo: Arc<Mutex<[f32; PA
                 }
                 continue;
             }
-            if !zaleglosc.is_empty() {
+            if cel.wolne().is_none() {
+                Akcja::Ponow // zmiana trybu albo nowe wyjście Windows
+            } else if !zaleglosc.is_empty() {
                 // najpierw zaległe próbki (gdy cel był pełny)
                 match cel.wolne() {
                     None => Akcja::Ponow, // cel zniknął (zmiana trybu)
@@ -804,6 +895,7 @@ fn petla(rx: Receiver<Rozkaz>, stan: Arc<Mutex<Stan>>, widmo: Arc<Mutex<[f32; PA
                         Akcja::Dalej
                     }
                     Ok(Some(p)) => {
+                        bledy_pod_rzad = 0;
                         an.dodaj(&p, &widmo);
                         let n = cel.wypchnij(&p);
                         if n < p.len() {
@@ -839,6 +931,13 @@ fn petla(rx: Receiver<Rozkaz>, stan: Arc<Mutex<Stan>>, widmo: Arc<Mutex<[f32; PA
                         start(i, &mut utwor, &mut zaleglosc);
                     }
                     None => {
+                        // ostatni utwór: daj wybrzmieć temu, co jeszcze czeka w buforze wyjścia
+                        if let Some((_, cel, _)) = utwor.as_mut() {
+                            let t0 = std::time::Instant::now();
+                            while cel.zalega() > 0 && cel.wolne().is_some() && t0.elapsed() < Duration::from_millis(700) {
+                                std::thread::sleep(Duration::from_millis(5));
+                            }
+                        }
                         utwor = None;
                         let mut s = stan.lock().unwrap();
                         s.gra = false;
@@ -847,12 +946,33 @@ fn petla(rx: Receiver<Rozkaz>, stan: Arc<Mutex<Stan>>, widmo: Arc<Mutex<[f32; PA
                     }
                 }
             }
+            Akcja::Blad(e) if e == ODMOWA => {
+                // Spotify odmówił klucza – stop, bez przechodzenia do kolejnych utworów (każdy byłby kolejną prośbą)
+                log::warn!("odtwarzacz: Spotify odmówił klucza – zatrzymuję kolejkę");
+                crate::spotify_pc::stop_jesli_aktywny();
+                utwor = None;
+                let mut s = stan.lock().unwrap();
+                s.gra = false;
+                s.blad = Some(crate::spotify_pc::KOMUNIKAT_ODMOWY.into());
+                oznacz(&s);
+            }
             Akcja::Blad(e) => {
                 log::error!("odtwarzacz: błąd dekodowania: {e}");
-                let nast = stan.lock().ok().and_then(|s| nastepny_idx(&s, true));
+                // następny utwór, ale bez zapętlania: po przejściu całej listy samych błędów (albo na jej końcu) – stop
+                bledy_pod_rzad += 1;
+                let (nast, n) = stan.lock().map(|s| (nastepny_idx(&s, false), s.lista.len())).unwrap_or((None, 0));
                 utwor = None;
-                if let Some(i) = nast {
-                    start(i, &mut utwor, &mut zaleglosc);
+                match nast {
+                    Some(i) if bledy_pod_rzad < n.max(1) => {
+                        start(i, &mut utwor, &mut zaleglosc);
+                    }
+                    _ => {
+                        bledy_pod_rzad = 0;
+                        let mut s = stan.lock().unwrap();
+                        s.gra = false;
+                        s.blad = Some(format!("Nie udało się odtworzyć: {e}"));
+                        oznacz(&s);
+                    }
                 }
             }
         }

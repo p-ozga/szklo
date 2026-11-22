@@ -4,11 +4,70 @@
 //!
 //! Tylko odczyt rejestru: MMDevices\Audio\Render\{guid} (nazwa, stan) i EqualizerAPO\Child APOs\{guid}.
 
+/// Zwiększana przy każdej zmianie domyślnego wyjścia Windows (podłączenie słuchawek, Bluetooth…).
+pub static GENERACJA: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+
+pub fn generacja() -> u32 {
+    GENERACJA.load(std::sync::atomic::Ordering::Relaxed)
+}
+
+/// GUID domyślnego urządzenia odtwarzania (eRender, eConsole) – część identyfikatora po ostatniej kropce.
+#[cfg(windows)]
+fn guid_domyslnego() -> Option<String> {
+    use windows::Win32::Media::Audio::{eConsole, eRender, IMMDeviceEnumerator, MMDeviceEnumerator};
+    use windows::Win32::System::Com::{CoCreateInstance, CoInitializeEx, CoTaskMemFree, CLSCTX_ALL, COINIT_MULTITHREADED};
+    // SAFETY: standardowe wywołania COM; łańcuch identyfikatora zwalniany CoTaskMemFree.
+    unsafe {
+        let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
+        let en: IMMDeviceEnumerator = CoCreateInstance(&MMDeviceEnumerator, None, CLSCTX_ALL).ok()?;
+        let dev = en.GetDefaultAudioEndpoint(eRender, eConsole).ok()?;
+        let id = dev.GetId().ok()?;
+        let s = id.to_string().ok();
+        CoTaskMemFree(Some(id.0 as *const core::ffi::c_void));
+        let s = s?;
+        s.rsplit('.').next().map(|g| g.to_string())
+    }
+}
+
+pub fn nazwa_domyslnego() -> Option<String> {
+    use cpal::traits::{DeviceTrait, HostTrait};
+    cpal::default_host().default_output_device()?.name().ok()
+}
+
+/// Otwiera wybór urządzeń Equalizer APO (poprosi o zgodę administratora).
+#[cfg(windows)]
+pub fn otworz_device_selector() -> Result<(), String> {
+    use windows::core::{w, HSTRING};
+    use windows::Win32::UI::Shell::ShellExecuteW;
+    use windows::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
+    let exe = r"C:\Program Files\EqualizerAPO\DeviceSelector.exe";
+    if !std::path::Path::new(exe).exists() {
+        return Err("nie znaleziono Equalizer APO (C:\\Program Files\\EqualizerAPO) – zainstaluj go najpierw".into());
+    }
+    // Katalog roboczy = folder Equalizer APO: DeviceSelector szuka wtyczek Qt w „qt\platforms” WZGLĘDEM
+    // katalogu roboczego – uruchomiony z katalogu Szkła kończy się błędem „no Qt platform plugin”.
+    let katalog = r"C:\Program Files\EqualizerAPO";
+    // SAFETY: stałe łańcuchy; ShellExecute obsługuje manifest „wymaga administratora” (UAC).
+    let h = unsafe { ShellExecuteW(None, w!("open"), &HSTRING::from(exe), None, &HSTRING::from(katalog), SW_SHOWNORMAL) };
+    if (h.0 as isize) <= 32 {
+        return Err(format!("nie udało się uruchomić DeviceSelector (kod {})", h.0 as isize));
+    }
+    Ok(())
+}
+#[cfg(not(windows))]
+pub fn otworz_device_selector() -> Result<(), String> {
+    Err("tylko Windows".into())
+}
+
 /// (przyjazna nazwa domyślnego wyjścia, czy ma Equalizer APO). `None`, gdy nie da się ustalić.
 #[cfg(windows)]
 pub fn domyslne_wyjscie() -> Option<(String, bool)> {
     use cpal::traits::{DeviceTrait, HostTrait};
     let nazwa = cpal::default_host().default_output_device()?.name().ok()?;
+    // pewnie: identyfikator domyślnego urządzenia z Windows („{0.0.0.00000000}.{guid}”) → klucz w rejestrze
+    if let Some(guid) = guid_domyslnego() {
+        return Some((nazwa, rejestr::istnieje(&format!(r"SOFTWARE\EqualizerAPO\Child APOs\{guid}"))));
+    }
     let mut znalezione: Option<bool> = None;
     for guid in rejestr::podklucze(r"SOFTWARE\Microsoft\Windows\CurrentVersion\MMDevices\Audio\Render") {
         let baza = format!(r"SOFTWARE\Microsoft\Windows\CurrentVersion\MMDevices\Audio\Render\{guid}");

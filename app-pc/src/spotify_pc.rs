@@ -115,6 +115,23 @@ pub fn get() -> &'static Spotify {
     })
 }
 
+/// Spotify odmówił klucza do odszyfrowania utworu (albo nie odpowiedział). Znany problem nieoficjalnych klientów
+/// (librespot #1649) – zatrzymujemy odtwarzanie zamiast pytać o klucze kolejnych utworów.
+static ODMOWA: AtomicBool = AtomicBool::new(false);
+pub const KOMUNIKAT_ODMOWY: &str = "Spotify nie wydał klucza do odtworzenia utworu na tym komputerze (blokada nieoficjalnych odtwarzaczy po stronie Spotify). Playlisty działają, ale odtwarzanie w Szkle jest niemożliwe – graj w aplikacji Spotify, Szkło i tak przetworzy jej dźwięk.";
+
+pub fn odmowa_klucza() {
+    if !ODMOWA.swap(true, Ordering::Relaxed) {
+        if let Some(s) = aktywny() {
+            ustaw(&s.stan, &s.zmiana, |st| st.opis = KOMUNIKAT_ODMOWY.into());
+        }
+    }
+}
+
+pub fn byla_odmowa() -> bool {
+    ODMOWA.load(Ordering::Relaxed)
+}
+
 /// Moduł, jeśli już uruchomiony.
 pub fn aktywny() -> Option<&'static Spotify> {
     spotify().get()
@@ -265,6 +282,7 @@ async fn petla(mut rx: tokio::sync::mpsc::UnboundedReceiver<Rozkaz>, stan: Arc<M
                 };
                 match SpotifyUri::from_uri(&uri) {
                     Ok(id) => {
+                        ODMOWA.store(false, Ordering::Relaxed);
                         let st = strumien();
                         st.koniec.store(false, Ordering::Relaxed);
                         st.blad.store(false, Ordering::Relaxed);

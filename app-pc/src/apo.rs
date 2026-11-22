@@ -45,16 +45,20 @@ pub fn spawn(params: Arc<SharedParams>) -> Arc<ApoLink> {
 
 fn list_pipes() -> Vec<String> {
     let Ok(rd) = std::fs::read_dir(r"\\.\pipe\") else { return Vec::new() };
+    let z_kreska = format!("{PIPE_PREFIX}-");
     rd.filter_map(|e| e.ok())
         .filter_map(|e| e.file_name().into_string().ok())
-        .filter(|n| n == PIPE_PREFIX || n.starts_with(&format!("{PIPE_PREFIX}-")))
+        .filter(|n| n == PIPE_PREFIX || n.starts_with(&z_kreska))
         .collect()
 }
 
 fn manager(link: Arc<ApoLink>, params: Arc<SharedParams>) {
     let peers: Peers = Arc::new(Mutex::new(HashMap::new()));
+    let mut obieg = 0u32;
     loop {
-        if link.active.load(Ordering::Relaxed) {
+        // lista WSZYSTKICH potoków systemu – raz na sekundę (mierniki niżej dalej co 200 ms)
+        obieg = obieg.wrapping_add(1);
+        if link.active.load(Ordering::Relaxed) && obieg % 5 == 1 {
             for name in list_pipes() {
                 let new = peers.lock().map(|mut p| {
                     if p.contains_key(&name) {

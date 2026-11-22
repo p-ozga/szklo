@@ -10,7 +10,10 @@ mod apo_check;
 mod audio;
 mod dziennik;
 mod odtwarzacz;
+mod media_win;
 mod milkdrop;
+mod monitor;
+mod spotify_okno;
 mod spotify_pc;
 mod presety;
 mod settings;
@@ -75,8 +78,21 @@ fn md_prostokat(w: &Wspolne, m: &Value) -> milkdrop::Prostokat {
 fn md_start(w: &Arc<Wspolne>, m: &Value) {
     let r = md_prostokat(w, m);
     let w = w.clone();
+    let wskaz = m["wskaz"].as_bool().unwrap_or(false);
     std::thread::spawn(move || {
         if milkdrop::sciezka().is_none() {
+            if let Some(p) = milkdrop::znajdz() {
+                log::info!("MilkDrop: znaleziono {}", p.display());
+                milkdrop::ustaw_sciezke(&p);
+            }
+        }
+        if milkdrop::sciezka().is_none() {
+            if !wskaz {
+                // nie ma programu na dysku – karta wyjaśni, skąd go wziąć (zamiast samego okna „Otwórz”)
+                log::info!("MilkDrop: brak MilkDrop3.exe – pokazuję instrukcję");
+                js(&w.proxy, "szklo.milkBrak()".into());
+                return;
+            }
             let wybor = rfd::FileDialog::new()
                 .set_title("Wskaż MilkDrop3.exe (pobierz z github.com/milkdrop2077/MilkDrop3)")
                 .add_filter("Program", &["exe"])
@@ -97,10 +113,20 @@ fn md_start(w: &Arc<Wspolne>, m: &Value) {
     });
 }
 
-fn odtw_json(w: &Wspolne) -> Value {
-    let s = w.odtw.stan.lock().map(|s| s.clone()).unwrap_or_default();
-    serde_json::to_value(&s).unwrap_or(Value::Null)
+/// Stan odtwarzacza dla UI. Lista (bywa długa) idzie tylko, gdy się zmieniła – pauza, przewijanie i zmiana
+/// utworu wysyłają mały obiekt bez listy, a UI nie przebudowuje wtedy tysięcy wierszy.
+fn odtw_json(w: &Wspolne, z_lista: bool) -> Value {
+    if z_lista {
+        let s = w.odtw.stan.lock().map(|s| s.clone()).unwrap_or_default();
+        return serde_json::to_value(&s).unwrap_or(Value::Null);
+    }
+    let Ok(s) = w.odtw.stan.lock() else { return Value::Null };
+    json!({ "biezacy": s.biezacy, "gra": s.gra, "pozycja": s.pozycja, "czas": s.czas, "losowo": s.losowo,
+            "powtarzanie": s.powtarzanie, "blad": s.blad, "wersja": s.wersja })
 }
+
+/// Okno schowane/zminimalizowane: zegar UI i odpytywanie multimediów zwalniają.
+static W_TLE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
 /// Okno wyboru plików/folderu (w osobnym wątku – nie blokuje UI) → dopisanie do playlisty.
 fn odtw_dodaj(w: &Arc<Wspolne>, folder: bool) {
@@ -112,8 +138,10 @@ fn odtw_dodaj(w: &Arc<Wspolne>, folder: bool) {
         } else {
             d.add_filter("Muzyka", odtwarzacz::ROZSZERZENIA).pick_files().unwrap_or_default()
         };
-        if !wybor.is_empty() {
-            w.odtw.rozkaz(odtwarzacz::Rozkaz::Dodaj(wybor));
+        // Czytanie tagów tutaj (wątek okna wyboru), paczkami: odtwarzanie nie staje, a lista rośnie na bieżąco.
+        let pliki = odtwarzacz::rozwin(wybor);
+        for paczka in pliki.chunks(100) {
+            w.odtw.rozkaz(odtwarzacz::Rozkaz::Dodaj(paczka.iter().map(|p| odtwarzacz::opisz(p)).collect()));
         }
     });
 }
@@ -178,8 +206,9 @@ fn obsluz(w: &Arc<Wspolne>, body: &str) {
             js(&w.proxy, format!("szklo.stan({})", stan_json(w)));
             js(&w.proxy, format!("szklo.urzadzenia({})", urzadzenia_json(w)));
             let _ = w.proxy.send_event(Zd::Tryb);
-            js(&w.proxy, format!("szklo.odtw({})", odtw_json(w)));
+            js(&w.proxy, format!("szklo.odtw({})", odtw_json(w, true)));
             js(&w.proxy, format!("szklo.spotify({})", spotify_pc::stan_json()));
+            js(&w.proxy, format!("szklo.spUkryte({})", spotify_okno::wlaczone()));
             // test wizualny strony tylnej: Szklo.exe --tyl
             if std::env::args().any(|a| a == "--tyl") {
                 js(&w.proxy, "setTimeout(()=>szklo.obroc(),300)".into());
@@ -296,6 +325,40 @@ fn obsluz(w: &Arc<Wspolne>, body: &str) {
             }
         }
         "p_wyczysc" => w.odtw.rozkaz(odtwarzacz::Rozkaz::Wyczysc),
+        "apo_dodaj" => {
+            if let Err(e) = apo_check::otworz_device_selector() {
+                log::error!("Equalizer APO: {e}");
+                js(&w.proxy, format!("szklo.status({})", json!(e)));
+            }
+        }
+        // ── aplikacja Spotify / inny odtwarzacz przez sterowanie multimediami Windows ──
+        "z_pp" => media_win::get().rozkaz(media_win::Rozkaz::PlayPauza),
+        "z_nast" => media_win::get().rozkaz(media_win::Rozkaz::Nastepny),
+        "z_poprz" => media_win::get().rozkaz(media_win::Rozkaz::Poprzedni),
+        "z_szukaj" => media_win::get().rozkaz(media_win::Rozkaz::Szukaj(m["s"].as_f64().unwrap_or(0.0))),
+        "z_losowo" => media_win::get().rozkaz(media_win::Rozkaz::Losowo(m["b"].as_bool().unwrap_or(false))),
+        "z_powt" => media_win::get().rozkaz(media_win::Rozkaz::Powtarzanie(m["v"].as_str().unwrap_or("wyl").to_string())),
+        "z_otworz" => {
+            // utwór/playlista w aplikacji Spotify (link spotify:…) – aplikacja sama zaczyna grać
+            if let Some(uri) = m["uri"].as_str().filter(|u| u.starts_with("spotify:")) {
+                spotify_okno::uruchom_aplikacje(uri);
+            }
+        }
+        "z_start" => {
+            // uruchom aplikację Spotify, jeśli nie działa (przy „Spotify w tle” – od razu schowaną)
+            if !spotify_okno::aplikacja_dziala() {
+                log::info!("Spotify: uruchamiam aplikację");
+                spotify_okno::uruchom_aplikacje("spotify:");
+            }
+        }
+        "z_ukryj" => {
+            let b = m["b"].as_bool().unwrap_or(false);
+            log::info!("Spotify w tle: {}", if b { "włączone" } else { "wyłączone" });
+            w.ust.lock().unwrap().hide_spotify = b;
+            oznacz_zmiane(w);
+            spotify_okno::ustaw(b);
+            js(&w.proxy, format!("szklo.spUkryte({b})"));
+        }
         // ── Spotify ──
         "sp_zaloguj" => spotify_pc::get().zaloguj(),
         "sp_wyloguj" => spotify_pc::get().wyloguj(),
@@ -316,6 +379,21 @@ fn obsluz(w: &Arc<Wspolne>, body: &str) {
         "md_start" => md_start(w, &m),
         "md_rect" => milkdrop::przesun(md_prostokat(w, &m)),
         "md_stop" => milkdrop::zamknij(),
+        "md_pobierz" => milkdrop::otworz_strone(),
+        "md_instaluj" => {
+            let w2 = w.clone();
+            std::thread::spawn(move || {
+                let p = w2.proxy.clone();
+                let wynik = milkdrop::pobierz_i_zainstaluj(&|t| js(&p, format!("szklo.milkPostep({})", json!(t))));
+                match wynik {
+                    Ok(_) => js(&w2.proxy, "szklo.milkGotowy()".into()),
+                    Err(e) => {
+                        log::error!("MilkDrop: {e}");
+                        js(&w2.proxy, format!("szklo.milkPostep({},true)", json!(e)));
+                    }
+                }
+            });
+        }
         "md_zmien" => {
             // wskaż inny MilkDrop3.exe
             let _ = std::fs::remove_file(settings::dir().join("milkdrop.txt"));
@@ -490,6 +568,9 @@ fn main() {
     let params = Arc::new(SharedParams::default());
     let local_meters = Arc::new(SharedMeters::new());
     let ust = settings::Settings::load();
+    if ust.hide_spotify {
+        spotify_okno::ustaw(true);
+    }
     ust.apply_to(&params);
 
     let w = Arc::new(Wspolne {
@@ -560,11 +641,11 @@ fn main() {
     }
     okno.set_visible(true);
 
-    // zegar UI: 60 Hz
+    // zegar UI: 60 Hz, a gdy okno schowane – 4 Hz (zostaje tylko zasobnik, zapis ustawień i pilnowanie strumieni)
     {
         let p = proxy.clone();
         std::thread::spawn(move || loop {
-            std::thread::sleep(Duration::from_millis(16));
+            std::thread::sleep(Duration::from_millis(if W_TLE.load(Ordering::Relaxed) { 250 } else { 16 }));
             if p.send_event(Zd::Tick).is_err() {
                 break;
             }
@@ -575,12 +656,27 @@ fn main() {
     let wyjscie_apo: Arc<Mutex<Option<(String, bool)>>> = Arc::new(Mutex::new(None));
     {
         let wa = wyjscie_apo.clone();
-        std::thread::spawn(move || loop {
-            let r = apo_check::domyslne_wyjscie();
-            if let Ok(mut g) = wa.lock() {
-                *g = r;
+        std::thread::spawn(move || {
+            let mut ost = String::new();
+            loop {
+                let r = apo_check::domyslne_wyjscie();
+                // zmiana domyślnego wyjścia (słuchawki, Bluetooth…) → odtwarzacz i widmo przechodzą na nowe urządzenie
+                if r.is_none() && ost != "?" {
+                    log::warn!("wyjście Windows: nie udało się ustalić domyślnego urządzenia (cpal: {:?})", apo_check::nazwa_domyslnego());
+                    ost = "?".into();
+                }
+                if let Some((nazwa, ma_apo)) = r.as_ref() {
+                    if *nazwa != ost {
+                        log::info!("wyjście Windows: {nazwa} (Equalizer APO: {})", if *ma_apo { "tak" } else { "nie" });
+                        ost = nazwa.clone();
+                        apo_check::GENERACJA.fetch_add(1, Ordering::Relaxed);
+                    }
+                }
+                if let Ok(mut g) = wa.lock() {
+                    *g = r;
+                }
+                std::thread::sleep(Duration::from_millis(1500));
             }
-            std::thread::sleep(Duration::from_secs(3));
         });
     }
 
@@ -597,6 +693,11 @@ fn main() {
     let mut ost_opis = String::new();
     let mut ost_poz = String::new();
     let mut licznik_tick: u32 = 0;
+    let mut monitor: Option<monitor::Monitor> = None;
+    let mut monitor_gen = apo_check::generacja();
+    let mut ost_wersja_listy = u64::MAX;
+    let mut ost_okladka_nr = u32::MAX;
+    let mut ost_widmo = String::new();
 
     el.run(move |zd, _, cf| {
         *cf = ControlFlow::Wait;
@@ -620,6 +721,13 @@ fn main() {
                 ost_mierniki.clear();
                 ost_opis.clear();
                 ost_status.clear();
+                // strona wczytana (od nowa): wyślij jeszcze raz wszystko, co idzie „tylko przy zmianie”
+                ost_poz.clear();
+                ost_widmo.clear();
+                ost_wersja_listy = u64::MAX;
+                ost_okladka_nr = u32::MAX;
+                w.odtw.zmiana.store(true, Ordering::Relaxed);
+                media_win::get().zmiana.store(true, Ordering::Relaxed);
             }
             Event::UserEvent(Zd::Okno(a)) => match a {
                 "drag" => {
@@ -629,6 +737,7 @@ fn main() {
                 "min" => okno.set_minimized(true),
                 "hide" => {
                     milkdrop::zamknij();
+                    let _ = webview.evaluate_script("window.szklo&&szklo.milkStop()");
                     okno.set_visible(false)
                 }
                 _ => {}
@@ -667,7 +776,12 @@ fn main() {
                     Some(local_meters.snapshot())
                 } else {
                     link.meters.lock().ok().and_then(|g| *g).map(|m| {
-                        let st = format!("Equalizer APO · {}", audio::fmt_khz(m.fs));
+                        let nazwa = wyjscie_apo.lock().ok().and_then(|g| g.as_ref().map(|x| x.0.clone())).unwrap_or_default();
+                        let st = if nazwa.is_empty() {
+                            format!("Equalizer APO · {}", audio::fmt_khz(m.fs))
+                        } else {
+                            format!("{nazwa} · Equalizer APO · {}", audio::fmt_khz(m.fs))
+                        };
                         if st != opis_urz {
                             opis_urz = st;
                         }
@@ -678,6 +792,15 @@ fn main() {
                 // połączenia nie ma 60 wywołań evaluate_script na sekundę); skrypt idzie wprost do WebView,
                 // bez dodatkowego przejścia przez kolejkę zdarzeń.
                 let widoczne = okno.is_visible() && !okno.is_minimized();
+                if W_TLE.swap(!widoczne, Ordering::Relaxed) == widoczne {
+                    media_win::zwolnij(!widoczne);
+                }
+                licznik_tick = licznik_tick.wrapping_add(1);
+                // strumień silnika padł (odłączone urządzenie, zmiana formatu w Windows) → postaw silnik od nowa
+                if running.is_some() && licznik_tick % 30 == 0 && audio::blad_strumienia() {
+                    log::warn!("silnik w aplikacji: strumień zgłosił błąd – uruchamiam ponownie");
+                    let _ = w.proxy.send_event(Zd::Tryb);
+                }
                 if widoczne {
                     let skrypt = match snap {
                         Some(s) => format!(
@@ -692,20 +815,30 @@ fn main() {
                     }
                 }
                 // opis urządzenia i stan
-                let (mode,) = (w.ust.lock().unwrap().mode.clone(),);
-                if mode == "apo" {
-                    let st = if link.connected.load(Ordering::Relaxed) {
-                        "wtyczka w Equalizer APO połączona".to_string()
+                // (4×/s wystarczy – składanie napisu stanu 60×/s było stratą)
+                let apo = (licznik_tick % 15 == 0 || !widoczne) && w.ust.lock().unwrap().mode == "apo";
+                if apo {
+                    // połączenie z wtyczką na urządzeniu BEZ APO to resztka po poprzednim wyjściu – nie pokazuj „przetwarza”
+                    let bez_apo = matches!(wyjscie_apo.lock().ok().and_then(|g| g.clone()), Some((_, false)));
+                    let st = if link.connected.load(Ordering::Relaxed) && !bez_apo {
+                        match wyjscie_apo.lock().ok().and_then(|g| g.clone()) {
+                            Some((nazwa, _)) => format!("Szkło przetwarza dźwięk na „{nazwa}” (Equalizer APO)"),
+                            None => "wtyczka w Equalizer APO połączona".to_string(),
+                        }
                     } else {
                         match wyjscie_apo.lock().ok().and_then(|g| g.clone()) {
                             Some((nazwa, false)) => {
                                 opis_urz = format!("Brak Equalizer APO na: {nazwa}");
                                 format!(
-                                    "domyślne wyjście „{nazwa}” nie ma Equalizer APO – dźwięk omija Szkło. Uruchom „C:\\Program Files\\EqualizerAPO\\DeviceSelector.exe”, \
-                                     zaznacz to urządzenie i uruchom ponownie komputer, albo na odwrocie przełącz tryb na „Silnik w aplikacji”."
+                                    "„{nazwa}” nie ma Equalizer APO – dźwięk omija Szkło. Kliknij „Dodaj Equalizer APO do tego urządzenia”, \
+                                     zaznacz je w oknie i uruchom ponownie komputer (jednorazowo dla każdego urządzenia)."
                                 )
                             }
-                            _ => {
+                            Some((nazwa, true)) => {
+                                opis_urz = format!("{nazwa} · Equalizer APO · czekam na dźwięk");
+                                format!("„{nazwa}” ma Equalizer APO – Szkło przetworzy dźwięk, gdy coś zacznie grać.")
+                            }
+                            None => {
                                 opis_urz = "Czekam na dźwięk w Equalizer APO".into();
                                 "czekam na dźwięk: wtyczka łączy się, gdy coś gra na urządzeniu z Equalizer APO (instrukcja: docs/equalizer_apo.md)".to_string()
                             }
@@ -715,13 +848,59 @@ fn main() {
                         log::info!("stan: {st}");
                         ost_status = st.clone();
                         js(&w.proxy, format!("szklo.status({})", json!(st)));
+                        let brak = wyjscie_apo.lock().ok().and_then(|g| g.clone()).filter(|x| !x.1).map(|x| x.0);
+                        js(&w.proxy, format!("szklo.brakApo({})", json!(brak)));
                     }
                 }
                 // wbudowany odtwarzacz: pełny stan po zmianie, pozycja ~10×/s, widmo ~30×/s (tylko powiększona karta)
-                licznik_tick = licznik_tick.wrapping_add(1);
+                // podsłuch widma: okno widoczne, powiększona karta, a wbudowany odtwarzacz nie gra
+                // (poza „if widoczne”: po schowaniu okna podsłuch ma się WYŁĄCZYĆ, a nie działać dalej w tle)
+                if licznik_tick % 30 == 0 || (!widoczne && monitor.is_some()) {
+                    let wlasny_gra = w.odtw.stan.lock().map(|s| s.gra).unwrap_or(false);
+                    let chce = widoczne && w.na_tyle.load(Ordering::Relaxed) && w.odtw_duzy.load(Ordering::Relaxed) && !wlasny_gra;
+                    // nowe wyjście Windows albo błąd strumienia → podsłuch od nowa
+                    if monitor_gen != apo_check::generacja() || monitor.as_ref().is_some_and(|m| m.martwy.load(Ordering::Relaxed)) {
+                        monitor_gen = apo_check::generacja();
+                        monitor = None;
+                    }
+                    {
+                        if chce && monitor.is_none() {
+                            let (tryb, wy) = {
+                                let u = w.ust.lock().unwrap();
+                                (u.mode.clone(), u.output.clone())
+                            };
+                            let urz = if tryb == "app" { wy } else { String::new() };
+                            match monitor::start(&urz, w.odtw.widmo.clone()) {
+                                Ok(m) => {
+                                    log::info!("widmo: podsłuch {}", m.urzadzenie);
+                                    monitor = Some(m);
+                                }
+                                Err(e) => log::warn!("widmo: podsłuch niedostępny: {e}"),
+                            }
+                        } else if !chce && monitor.is_some() {
+                            monitor = None;
+                        }
+                    }
+                }
                 if widoczne {
                     if w.odtw.zmiana.swap(false, Ordering::Relaxed) {
-                        let _ = webview.evaluate_script(&format!("szklo.odtw({})", odtw_json(&w)));
+                        let wersja = w.odtw.stan.lock().map(|s| s.wersja).unwrap_or(0);
+                        let z_lista = wersja != ost_wersja_listy;
+                        ost_wersja_listy = wersja;
+                        let _ = webview.evaluate_script(&format!("szklo.odtw({})", odtw_json(&w, z_lista)));
+                    }
+                    let media = media_win::get();
+                    if media.zmiana.swap(false, Ordering::Relaxed) {
+                        // okładka (data URL, bywa duża) idzie osobno i tylko po zmianie
+                        let (z, okl) = match media.stan.lock() {
+                            Ok(z) => (json!(*z), (z.okladka_nr != ost_okladka_nr).then(|| (z.okladka_nr, z.okladka.clone()))),
+                            Err(_) => (Value::Null, None),
+                        };
+                        if let Some((nr, dane)) = okl {
+                            ost_okladka_nr = nr;
+                            let _ = webview.evaluate_script(&format!("szklo.zewnOkladka({})", json!(dane)));
+                        }
+                        let _ = webview.evaluate_script(&format!("szklo.zewn({z})"));
                     }
                     if spotify_pc::aktywny().is_some_and(|s| s.zmiana.swap(false, Ordering::Relaxed)) {
                         let _ = webview.evaluate_script(&format!("szklo.spotify({})", spotify_pc::stan_json()));
@@ -737,7 +916,11 @@ fn main() {
                     if licznik_tick % 2 == 0 && w.na_tyle.load(Ordering::Relaxed) && w.odtw_duzy.load(Ordering::Relaxed) {
                         let wd = w.odtw.widmo.lock().map(|x| *x).unwrap_or_default();
                         let lista: Vec<String> = wd.iter().map(|v| format!("{v:.3}")).collect();
-                        let _ = webview.evaluate_script(&format!("szklo.widmo([{}])", lista.join(",")));
+                        let sk = format!("szklo.widmo([{}])", lista.join(","));
+                        if sk != ost_widmo {
+                            let _ = webview.evaluate_script(&sk);
+                            ost_widmo = sk;
+                        }
                     }
                 }
                 if widoczne && opis_urz != ost_opis {
@@ -762,6 +945,9 @@ fn main() {
                         js(&w.proxy, format!("szklo.stan({{enabled:{on}}})"));
                     } else if ev.id == mi_koniec.id() {
                         w.ust.lock().unwrap().save();
+                        // nie zostawiaj po sobie niewidocznych/osieroconych programów
+                        spotify_okno::przy_wyjsciu();
+                        milkdrop::zamknij();
                         tray.take();
                         *cf = ControlFlow::Exit;
                     }
@@ -795,6 +981,8 @@ fn main() {
             }
             Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => {
                 // zamknięcie chowa do zasobnika – przetwarzanie działa dalej
+                milkdrop::zamknij();
+                let _ = webview.evaluate_script("window.szklo&&szklo.milkStop()");
                 okno.set_visible(false);
             }
             _ => {}

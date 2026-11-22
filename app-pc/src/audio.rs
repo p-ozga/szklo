@@ -100,7 +100,12 @@ pub fn start(input: &str, output: &str, params: Arc<SharedParams>, meters: Arc<S
     let target = (fs as usize / 50) * 2;
     let (mut prod, mut cons) = HeapRb::<f32>::new(cap).split();
 
-    let err_fn = |e| log::error!("błąd strumienia audio: {e}");
+    // cpal (WASAPI) po błędzie kończy wątek strumienia na dobre – flaga każe pętli głównej postawić silnik od nowa
+    BLAD_STRUMIENIA.store(false, std::sync::atomic::Ordering::Relaxed);
+    let err_fn = |e| {
+        log::error!("błąd strumienia audio: {e}");
+        BLAD_STRUMIENIA.store(true, std::sync::atomic::Ordering::Relaxed);
+    };
     let in_stream = in_dev
         .build_input_stream(
             &in_cfg.config(),
@@ -154,7 +159,8 @@ pub fn start(input: &str, output: &str, params: Arc<SharedParams>, meters: Arc<S
                 }
                 wstrz_tmp.clear();
                 wstrz_tmp.resize(frames * 2, 0.0);
-                let wn = w_cons.pop_slice(&mut wstrz_tmp);
+                // pauza odtwarzacza: nie pobieraj (bufor czeka), zamiast grać jeszcze pół sekundy
+                let wn = if WSTRZYK_PAUZA.load(std::sync::atomic::Ordering::Relaxed) { 0 } else { w_cons.pop_slice(&mut wstrz_tmp) };
                 for (a, b) in scratch.iter_mut().zip(&wstrz_tmp[..wn]) {
                     *a += *b;
                 }
@@ -196,6 +202,8 @@ impl Drop for Running {
         if let Ok(mut g) = WSTRZYK.lock() {
             *g = None;
         }
+        WSTRZYK_PAUZA.store(false, std::sync::atomic::Ordering::Relaxed);
+        WSTRZYK_CZYSC.store(false, std::sync::atomic::Ordering::Relaxed);
     }
 }
 
@@ -203,6 +211,8 @@ impl Drop for Running {
 
 static WSTRZYK: std::sync::Mutex<Option<(HeapProd<f32>, u32)>> = std::sync::Mutex::new(None);
 static WSTRZYK_CZYSC: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+static WSTRZYK_PAUZA: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+static BLAD_STRUMIENIA: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
 /// Częstotliwość silnika, gdy tryb aplikacji działa (odtwarzacz wtedy podaje próbki tutaj).
 pub fn wstrzykniecie_fs() -> Option<u32> {
@@ -215,7 +225,23 @@ pub fn wstrzyknij(s: &[f32]) -> usize {
     WSTRZYK.lock().ok().and_then(|mut g| g.as_mut().map(|(p, _)| p.push_slice(s))).unwrap_or(0)
 }
 pub fn wstrzyknij_wyczysc() {
-    WSTRZYK_CZYSC.store(true, std::sync::atomic::Ordering::Relaxed);
+    use std::sync::atomic::Ordering::Relaxed;
+    WSTRZYK_CZYSC.store(true, Relaxed);
+    // poczekaj (krótko), aż wywołanie zwrotne opróżni bufor – inaczej wyrzuciłoby początek NOWEGO utworu
+    for _ in 0..25 {
+        if !WSTRZYK_CZYSC.load(Relaxed) {
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(2));
+    }
+}
+/// Pauza wbudowanego odtwarzacza w trybie silnika (natychmiastowa cisza, bufor zostaje).
+pub fn wstrzyknij_pauza(b: bool) {
+    WSTRZYK_PAUZA.store(b, std::sync::atomic::Ordering::Relaxed);
+}
+/// Czy strumień silnika zgłosił błąd od ostatniego sprawdzenia (urządzenie odłączone, zmiana formatu…).
+pub fn blad_strumienia() -> bool {
+    BLAD_STRUMIENIA.swap(false, std::sync::atomic::Ordering::Relaxed)
 }
 
 pub fn fmt_khz(fs: u32) -> String {

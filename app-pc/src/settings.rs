@@ -16,6 +16,8 @@ pub struct Settings {
     pub mode: String,
     pub input: String,
     pub output: String,
+    /// „Spotify w tle”: chowaj okno aplikacji Spotify (gra dalej, sterowanie z karty odtwarzacza).
+    pub hide_spotify: bool,
 }
 
 impl Default for Settings {
@@ -30,6 +32,7 @@ impl Default for Settings {
             mode: "apo".into(),
             input: String::new(),
             output: String::new(),
+            hide_spotify: false,
         }
     }
 }

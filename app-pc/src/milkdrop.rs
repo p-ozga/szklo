@@ -15,7 +15,59 @@ pub struct Prostokat {
 struct Dziala {
     proces: std::process::Child,
     hwnd: isize,
+    /// okno Szkła, w którym MilkDrop jest osadzony (do wyczyszczenia tła po zamknięciu)
+    rodzic: isize,
+    /// bieżące położenie okna MilkDrop w oknie Szkła (x, y, w, h)
+    prost: (i32, i32, i32, i32),
 }
+
+/// Czyszczenie tła od razu ORAZ kilka razy z opóźnieniem: Windows potrafi dorysować ostatnią klatkę MilkDrop
+/// już po zamknięciu/zmniejszeniu jego okna (zwłaszcza po wyjściu z pełnego ekranu), więc jedno czyszczenie nie wystarcza.
+/// Każde powtórzenie omija prostokąt MilkDrop, jeśli ten nadal działa.
+fn wyczysc_tlo_pozniej(rodzic: isize) {
+    let teraz = |rodzic: isize| {
+        let bez = stan().lock().ok().and_then(|g| g.as_ref().map(|d| d.prost));
+        let bez = bez.map(|(x, y, w, h)| Prostokat { x, y, w, h });
+        wyczysc_tlo(rodzic, bez.as_ref());
+    };
+    teraz(rodzic);
+    std::thread::spawn(move || {
+        for ms in [120u64, 300, 800, 1500] {
+            std::thread::sleep(std::time::Duration::from_millis(ms));
+            teraz(rodzic);
+        }
+    });
+}
+
+/// MilkDrop rysuje wprost na powierzchni okna Szkła. Po jego zamknięciu (albo zmniejszeniu) ostatnia klatka
+/// zostawała tam na stałe i prześwitywała przez półprzezroczysty panel. Zamalowanie czernią przywraca tło okna
+/// (czerń = przezroczystość, pod nią mrożone szkło). `bez` – prostokąt, którego nie ruszać (działający MilkDrop).
+#[cfg(windows)]
+fn wyczysc_tlo(rodzic: isize, bez: Option<&Prostokat>) {
+    use windows::Win32::Foundation::{HWND, RECT};
+    use windows::Win32::Graphics::Gdi::{ExcludeClipRect, FillRect, GetDC, GetStockObject, ReleaseDC, BLACK_BRUSH, HBRUSH};
+    use windows::Win32::UI::WindowsAndMessaging::{GetClientRect, IsWindow};
+    let h = HWND(rodzic as *mut core::ffi::c_void);
+    // SAFETY: uchwyt sprawdzony IsWindow; kontekst urządzenia zwalniany.
+    unsafe {
+        if rodzic == 0 || !IsWindow(h).as_bool() {
+            return;
+        }
+        let dc = GetDC(h);
+        if dc.is_invalid() {
+            return;
+        }
+        let mut r = RECT::default();
+        let _ = GetClientRect(h, &mut r);
+        if let Some(b) = bez {
+            ExcludeClipRect(dc, b.x, b.y, b.x + b.w, b.y + b.h);
+        }
+        FillRect(dc, &r, HBRUSH(GetStockObject(BLACK_BRUSH).0));
+        ReleaseDC(h, dc);
+    }
+}
+#[cfg(not(windows))]
+fn wyczysc_tlo(_: isize, _: Option<&Prostokat>) {}
 
 fn stan() -> &'static Mutex<Option<Dziala>> {
     static S: Mutex<Option<Dziala>> = Mutex::new(None);
@@ -239,6 +291,8 @@ pub fn znajdz() -> Option<PathBuf> {
         bazy.push(d.join("Desktop"));
         bazy.push(d.join("Documents"));
     }
+    // prawdziwe foldery użytkownika (Pulpit/Dokumenty/Pobrane bywają przeniesione, np. do OneDrive albo na inny dysk)
+    bazy.extend(foldery_uzytkownika());
     bazy.iter().find_map(|b| {
         std::fs::read_dir(b)
             .ok()?
@@ -340,11 +394,36 @@ pub fn uruchom(rodzic: isize, r: Prostokat) -> Result<(), String> {
         let styl = WS_CHILD.0 | WS_VISIBLE.0 | WS_CLIPSIBLINGS.0;
         SetWindowLongPtrW(h, GWL_STYLE, styl as isize);
         SetWindowLongPtrW(h, GWL_EXSTYLE, 0);
-        let _ = SetParent(h, HWND(rodzic as *mut core::ffi::c_void));
+        let hr = HWND(rodzic as *mut core::ffi::c_void);
+        let _ = SetParent(h, hr);
+        // Okno WebView (i jego okno potomne) musi mieć WS_CLIPSIBLINGS – inaczej jego obraz (składany przez DWM
+        // z osobnej powierzchni) jest rysowany NA okno MilkDrop i karta zostaje czarna, choć MilkDrop działa.
+        let mut rodzenstwo = GetWindow(hr, GW_CHILD);
+        while let Ok(okno) = rodzenstwo {
+            if okno.is_invalid() {
+                break;
+            }
+            if okno != h {
+                let mut cele = vec![okno];
+                if let Ok(dz) = GetWindow(okno, GW_CHILD) {
+                    if !dz.is_invalid() {
+                        cele.push(dz);
+                    }
+                }
+                for c in cele {
+                    let st = GetWindowLongPtrW(c, GWL_STYLE);
+                    if st & WS_CLIPSIBLINGS.0 as isize == 0 {
+                        SetWindowLongPtrW(c, GWL_STYLE, st | WS_CLIPSIBLINGS.0 as isize);
+                        let _ = SetWindowPos(c, None, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+                    }
+                }
+            }
+            rodzenstwo = GetWindow(okno, GW_HWNDNEXT);
+        }
         let _ = SetWindowPos(h, HWND_TOP, r.x, r.y, r.w, r.h, SWP_SHOWWINDOW | SWP_FRAMECHANGED);
     }
     if let Ok(mut g) = stan().lock() {
-        *g = Some(Dziala { proces, hwnd });
+        *g = Some(Dziala { proces, hwnd, rodzic, prost: (r.x, r.y, r.w, r.h) });
     }
     if URUCHOMIENIE.load(std::sync::atomic::Ordering::SeqCst) != moje {
         zamknij(); // zamknięcie trafiło dokładnie między sprawdzeniem a zapisem stanu
@@ -359,9 +438,12 @@ pub fn uruchom(_: isize, _: Prostokat) -> Result<(), String> {
 
 /// Nowe położenie (zmiana rozmiaru okna Szkła).
 pub fn przesun(r: Prostokat) {
+    let mut rodzic = 0isize;
     #[cfg(windows)]
-    if let Ok(g) = stan().lock() {
-        if let Some(d) = g.as_ref() {
+    if let Ok(mut g) = stan().lock() {
+        if let Some(d) = g.as_mut() {
+            d.prost = (r.x, r.y, r.w, r.h);
+            rodzic = d.rodzic;
             use windows::Win32::Foundation::HWND;
             use windows::Win32::UI::WindowsAndMessaging::{SetWindowPos, HWND_TOP, SWP_SHOWWINDOW};
             // SAFETY: uchwyt osadzonego okna MilkDrop.
@@ -370,8 +452,12 @@ pub fn przesun(r: Prostokat) {
             }
         }
     }
+    // po zmniejszeniu (np. wyjście z pełnego ekranu) – usuń to, co zostało poza nowym prostokątem
+    if rodzic != 0 {
+        wyczysc_tlo_pozniej(rodzic);
+    }
     #[cfg(not(windows))]
-    let _ = r;
+    let _ = (r, &mut rodzic);
 }
 
 /// Zmieniany przez `zamknij()` – przerywa uruchomienie, które jeszcze czeka na okno.
@@ -382,6 +468,81 @@ pub fn zamknij() {
     if let Some(mut d) = stan().lock().ok().and_then(|mut g| g.take()) {
         let _ = d.proces.kill();
         let _ = d.proces.wait();
+        wyczysc_tlo_pozniej(d.rodzic);
         log::info!("MilkDrop: zamknięty");
     }
+}
+
+/// Pulpit, Dokumenty i Pobrane według Windows (znane foldery) – niezależnie od tego, dokąd je przeniesiono.
+#[cfg(windows)]
+fn foldery_uzytkownika() -> Vec<PathBuf> {
+    use windows::Win32::System::Com::CoTaskMemFree;
+    use windows::Win32::UI::Shell::{SHGetKnownFolderPath, FOLDERID_Desktop, FOLDERID_Documents, FOLDERID_Downloads, KNOWN_FOLDER_FLAG};
+    let mut v = Vec::new();
+    for id in [&FOLDERID_Desktop, &FOLDERID_Documents, &FOLDERID_Downloads] {
+        // SAFETY: wskaźnik zwrócony przez powłokę zwalniany CoTaskMemFree.
+        unsafe {
+            if let Ok(p) = SHGetKnownFolderPath(id, KNOWN_FOLDER_FLAG(0), None) {
+                if let Ok(s) = p.to_string() {
+                    v.push(PathBuf::from(s));
+                }
+                CoTaskMemFree(Some(p.0 as *const core::ffi::c_void));
+            }
+        }
+    }
+    v
+}
+#[cfg(not(windows))]
+fn foldery_uzytkownika() -> Vec<PathBuf> {
+    Vec::new()
+}
+
+/// Czy osadzony MilkDrop zakończył się sam (użytkownik zamknął go z klawiatury itp.).
+pub fn zakonczyl_sie() -> bool {
+    stan().lock().ok().and_then(|mut g| g.as_mut().map(|d| matches!(d.proces.try_wait(), Ok(Some(_))))).unwrap_or(false)
+}
+
+// ───────────── Esc w trybie pełnoekranowym ─────────────
+// Na pełnym ekranie klawiaturę ma okno MilkDrop (inny proces), więc Szkło nie zobaczyłoby Esc. Na ten czas
+// rejestrujemy systemowy skrót Esc: Windows oddaje go nam (MilkDrop go nie dostaje), a my wychodzimy z pełnego ekranu.
+
+static ESC_CHCE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+static ESC_NR: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+
+#[cfg(windows)]
+pub fn esc_start(f: impl Fn() + Send + 'static) {
+    use std::sync::atomic::Ordering::SeqCst;
+    use windows::Win32::UI::Input::KeyboardAndMouse::{RegisterHotKey, UnregisterHotKey, MOD_NOREPEAT, VK_ESCAPE};
+    use windows::Win32::UI::WindowsAndMessaging::{PeekMessageW, MSG, PM_REMOVE, WM_HOTKEY};
+    ESC_CHCE.store(true, SeqCst);
+    let moj = ESC_NR.fetch_add(1, SeqCst) + 1;
+    std::thread::Builder::new()
+        .name("szklo-esc".into())
+        .spawn(move || {
+            // SAFETY: skrót rejestrowany i wyrejestrowywany w tym samym wątku; MSG lokalne.
+            unsafe {
+                if RegisterHotKey(None, 1, MOD_NOREPEAT, VK_ESCAPE.0 as u32).is_err() {
+                    log::warn!("pełny ekran: nie udało się przejąć klawisza Esc (wyjście ikoną zmniejszania niedostępne – użyj Alt+Tab)");
+                    return;
+                }
+                let mut msg = MSG::default();
+                'petla: while ESC_CHCE.load(SeqCst) && ESC_NR.load(SeqCst) == moj {
+                    while PeekMessageW(&mut msg, None, 0, 0, PM_REMOVE).as_bool() {
+                        if msg.message == WM_HOTKEY {
+                            f();
+                            break 'petla;
+                        }
+                    }
+                    std::thread::sleep(std::time::Duration::from_millis(30));
+                }
+                let _ = UnregisterHotKey(None, 1);
+            }
+        })
+        .ok();
+}
+#[cfg(not(windows))]
+pub fn esc_start(_: impl Fn() + Send + 'static) {}
+
+pub fn esc_stop() {
+    ESC_CHCE.store(false, std::sync::atomic::Ordering::SeqCst);
 }

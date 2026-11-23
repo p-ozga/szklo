@@ -194,7 +194,9 @@ select option{background:#0d2326;color:var(--tekst)}
 /* MilkDrop: karta = czarne płótno pod osadzonym oknem programu; zostaje tylko „zmniejsz” */
 .odtw-karta.milk{background:#000 !important}
 .odtw-karta.milk > *:not(.odtw-gora){visibility:hidden}
-.odtw-karta.milk .odtw-gora > *:not(#odtwPowieksz){visibility:hidden}
+.odtw-karta.milk .odtw-gora > *:not(#odtwPowieksz):not(#odtwPelny){visibility:hidden}
+#odtwPelny{display:none}
+.odtw-karta.milk #odtwPelny{display:inline-flex}
 .odtw-pusto{padding:24px;text-align:center;color:var(--tekst60);font-size:13px}
 .lic-skrot{font-size:11.5px !important;line-height:1.5 !important}
 .lic-nakladka{position:absolute;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;padding:28px;background:rgba(4,14,16,.55);backdrop-filter:blur(6px)}
@@ -313,6 +315,7 @@ select option{background:#0d2326;color:var(--tekst)}
             <button type="button" class="ikona-btn" id="odtwZrodloFolder" title="Dodaj folder" aria-label="Dodaj folder"><svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></button>
             <button type="button" class="ikona-btn" id="odtwSpotify" title="Spotify" aria-label="Spotify"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M7.5 10c3-1 6.5-.6 9 1M8 13.2c2.5-.7 5.2-.4 7.3.8M8.6 16.2c2-.5 4-.3 5.7.6"/></svg></button>
             <button type="button" class="ikona-btn odtw-tylko-duzy" id="odtwMilk" title="Wizualizacja MilkDrop 3 (osobny program – trzeba go pobrać)" aria-label="Wizualizacja MilkDrop 3"><svg viewBox="0 0 24 24"><path d="M12 3l1.8 4.7L18.5 9l-4.7 1.8L12 15.5l-1.8-4.7L5.5 9l4.7-1.3zM18 15l.9 2.1L21 18l-2.1.9L18 21l-.9-2.1L15 18l2.1-.9z"/></svg></button>
+            <button type="button" class="ikona-btn" id="odtwPelny" title="Pełny ekran (Esc – powrót)" aria-label="Wizualizacja na pełnym ekranie"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
             <button type="button" class="ikona-btn" id="odtwPowieksz" title="Powiększ" aria-label="Powiększ odtwarzacz"><svg class="ik-wieksz" viewBox="0 0 24 24"><path d="M14 4h6v6M10 20H4v-6M20 4l-7 7M4 20l7-7"/></svg><svg class="ik-mniej" viewBox="0 0 24 24"><path d="M10 4v6H4M14 20v-6h6M4 4l6 6M20 20l-6-6"/></svg></button>
           </div>
           <div class="odtw-wiz" id="odtwWiz" aria-hidden="true">
@@ -401,6 +404,7 @@ select option{background:#0d2326;color:var(--tekst)}
           </div>
           <div class="status" id="status">Stan: <b>—</b></div>
           <button type="button" class="btn-szklo btn-glowny" id="btnApoDodaj" hidden>Dodaj Equalizer APO do tego urządzenia</button>
+          <button type="button" class="btn-szklo btn-glowny" id="btnApoRestart" hidden title="Uruchamia ponownie usługę dźwięku Windows (poprosi o zgodę administratora). Dźwięk we wszystkich programach przerwie się na kilka sekund.">Załaduj bez restartu komputera</button>
           <p>Tryb automatyczny: Szkło przetwarza cały dźwięk na urządzeniu, którego właśnie używa Windows – podłącz słuchawki albo połącz Bluetooth, a Szkło przejdzie na nie samo (urządzenie musi mieć Equalizer APO – przycisk wyżej doda go jednym kliknięciem). Tryb ręczny: wybrane wejście → wybrane wyjście.</p>
           <div class="spacer"></div>
           <p class="lic-skrot">Szkło korzysta z cudzych elementów: czcionek Inter i Space Grotesk, bibliotek open source (m.in. librespot, Symphonia), WebView2 (Microsoft), Equalizer APO (Jonas Thedering) i – jeśli go pobierzesz – MilkDrop 3 (milkdrop2077). Spotify i VST to znaki towarowe ich właścicieli – Szkło nie jest z nimi powiązane.</p>
@@ -572,6 +576,8 @@ document.addEventListener('DOMContentLoaded', () => {
 /* ---------- MilkDrop 3 w karcie ---------- */
 const MILK = { on: false };
 function milkProstokat() {
+  // pełny ekran: okno MilkDrop zajmuje całe okno Szkła (które zajmuje cały ekran)
+  if (MILK.pelny) return { x: 0, y: 0, w: window.innerWidth, h: window.innerHeight };
   const k = $('#odtwKarta').getBoundingClientRect(), g = $('.odtw-gora').getBoundingClientRect();
   const y = g.bottom + 8;
   return { x: k.left + 12, y, w: k.width - 24, h: k.bottom - y - 12 };
@@ -585,12 +591,14 @@ function milkStart(wskaz = false) {
 }
 function milkStop(wyslijStop = true) {
   if (!MILK.on) return;
+  if (MILK.pelny) wyslij({ t: 'md_pelny', b: false });
   MILK.on = false; $('#odtwKarta').classList.remove('milk');
   $('#odtwPowieksz').title = 'Zmniejsz';
   if (wyslijStop) wyslij({ t: 'md_stop' });
 }
 document.addEventListener('DOMContentLoaded', () => {
   $('#odtwMilk').addEventListener('click', milkStart);
+  $('#odtwPelny').addEventListener('click', () => { if (MILK.on) wyslij({ t: 'md_pelny', b: !MILK.pelny }); });
   $('#milkPobierz').addEventListener('click', () => wyslij({ t: 'md_pobierz' }));
   $('#milkInstaluj').addEventListener('click', () => { MILK.instaluje = true; $('#milkInstaluj').disabled = true; $('#milkPostep').textContent = 'Łączę się z GitHubem…'; wyslij({ t: 'md_instaluj' }); });
   $('#milkWskaz').addEventListener('click', () => { $('#milkBrak').hidden = true; MILK.on = false; milkStart(true); });
@@ -598,6 +606,7 @@ document.addEventListener('DOMContentLoaded', () => {
   $('#zrPliki').addEventListener('click', () => ustawZrodlo('pliki'));
   $('#zrApp').addEventListener('click', () => ustawZrodlo('app'));
   $('#btnApoDodaj').addEventListener('click', () => wyslij({ t: 'apo_dodaj' }));
+  $('#btnApoRestart').addEventListener('click', () => wyslij({ t: 'apo_restart' }));
   document.querySelectorAll('.btn-obroc').forEach(b => b.addEventListener('click', () => obroc()));
 });
 /* ---------- Spotify w odtwarzaczu ---------- */
@@ -978,6 +987,7 @@ window.szklo = {
   odtwPoz(p, g) { if (g && !(ODTW.stan && ODTW.stan.gra)) ZEW.zrodlo = 'pliki'; odtwPozycja(p, g); },
   zewn(z) { if (!z) return; if (z.gra && !(ZEW.stan && ZEW.stan.gra)) ZEW.zrodlo = 'app'; z.okladka = ZEW.okladka || ''; ZEW.stan = z; odtwNaglowek(); },
   zewnOkladka(d) { ZEW.okladka = d || ''; if (ZEW.stan) { ZEW.stan.okladka = ZEW.okladka; odtwNaglowek(); } },
+  apoNiezaladowany(b) { $('#btnApoRestart').hidden = !b; },
   brakApo(nazwa) { const b = $('#btnApoDodaj'); b.hidden = !nazwa; if (nazwa) b.textContent = `Dodaj Equalizer APO do: ${nazwa}`; },
   milkStop(blad) { milkStop(false); if (blad) $('#odtwBlad').textContent = 'MilkDrop: ' + blad; },
   spUkryte(b) { const p = $('#spUkryj'); p.setAttribute('aria-pressed', b ? 'true' : 'false'); p.textContent = b ? 'Pokaż aplikację Spotify' : 'Schowaj aplikację Spotify'; },
@@ -985,6 +995,8 @@ window.szklo = {
   milkPostep(t, blad) { $('#milkPostep').textContent = t; $('#milkPostep').classList.toggle('blad', !!blad); if (blad) { MILK.instaluje = false; $('#milkInstaluj').disabled = false; } },
   // po instalacji: włącz wizualizację tylko, jeśli użytkownik nadal patrzy na panel instalacji w powiększonej karcie
   milkGotowy() { const czeka = !$('#milkBrak').hidden && ODTW.duzy && naTyle; MILK.instaluje = false; $('#milkBrak').hidden = true; $('#milkInstaluj').disabled = false; if (czeka) milkStart(); },
+  // pełny ekran włączony/wyłączony przez program: rozmiar okna zmienia się chwilę później, więc poprawiamy położenie kilka razy
+  pelnyEkran(b) { MILK.pelny = !!b; document.body.classList.toggle('pelny', MILK.pelny); for (const t of [0, 120, 400]) setTimeout(() => szklo.milkPrzesun(), t); },
   milkPrzesun() { if (MILK.on) wyslij({ t: 'md_rect', ...milkProstokat() }); },
   spotify(s) { SP.stan = s; if (SP.zakladka === 'spotify') spRysuj(); },
   widmo(v) { ODTW.widmo = v; },

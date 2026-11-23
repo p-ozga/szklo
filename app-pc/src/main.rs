@@ -326,7 +326,15 @@ fn obsluz(w: &Arc<Wspolne>, body: &str) {
         }
         "p_wyczysc" => w.odtw.rozkaz(odtwarzacz::Rozkaz::Wyczysc),
         "apo_dodaj" => {
+            log::info!("Equalizer APO: otwieram wybór urządzeń (DeviceSelector)");
             if let Err(e) = apo_check::otworz_device_selector() {
+                log::error!("Equalizer APO: {e}");
+                js(&w.proxy, format!("szklo.status({})", json!(e)));
+            }
+        }
+        "apo_restart" => {
+            log::info!("Equalizer APO: restart usługi dźwięku Windows (na prośbę użytkownika)");
+            if let Err(e) = apo_check::restart_dzwieku() {
                 log::error!("Equalizer APO: {e}");
                 js(&w.proxy, format!("szklo.status({})", json!(e)));
             }
@@ -379,6 +387,10 @@ fn obsluz(w: &Arc<Wspolne>, body: &str) {
         "md_start" => md_start(w, &m),
         "md_rect" => milkdrop::przesun(md_prostokat(w, &m)),
         "md_stop" => milkdrop::zamknij(),
+        // wizualizacja na pełnym ekranie (wyjście: Esc albo zmniejszenie karty)
+        "md_pelny" => {
+            let _ = w.proxy.send_event(Zd::Okno(if m["b"].as_bool().unwrap_or(false) { "pelny_wl" } else { "pelny_wyl" }));
+        }
         "md_pobierz" => milkdrop::otworz_strone(),
         "md_instaluj" => {
             let w2 = w.clone();
@@ -698,6 +710,8 @@ fn main() {
     let mut ost_wersja_listy = u64::MAX;
     let mut ost_okladka_nr = u32::MAX;
     let mut ost_widmo = String::new();
+    // urządzenie ma wpis Equalizer APO, coś gra, a wtyczka się nie łączy → APO dodany, ale jeszcze niezaładowany
+    let mut apo_czeka_od: Option<Instant> = None;
 
     el.run(move |zd, _, cf| {
         *cf = ControlFlow::Wait;
@@ -735,6 +749,30 @@ fn main() {
                 }
                 "max" => okno.set_maximized(!okno.is_maximized()),
                 "min" => okno.set_minimized(true),
+                "pelny_wl" => {
+                    if okno.fullscreen().is_none() {
+                        log::info!("MilkDrop: pełny ekran");
+                        bez_rogow_dwm(&okno);
+                        okno.set_fullscreen(Some(tao::window::Fullscreen::Borderless(None)));
+                        let _ = webview.evaluate_script("window.szklo&&szklo.pelnyEkran(true)");
+                        // Esc wychodzi z pełnego ekranu (skrót przechwytywany tylko na ten czas – nie trafia do MilkDrop)
+                        let p = w.proxy.clone();
+                        milkdrop::esc_start(move || {
+                            let _ = p.send_event(Zd::Okno("pelny_wyl"));
+                        });
+                    }
+                }
+                "pelny_wyl" => {
+                    milkdrop::esc_stop();
+                    if okno.fullscreen().is_some() {
+                        log::info!("MilkDrop: koniec pełnego ekranu");
+                        okno.set_fullscreen(None);
+                        if akryl {
+                            zaokraglij_dwm(&okno);
+                        }
+                    }
+                    let _ = webview.evaluate_script("window.szklo&&szklo.pelnyEkran(false)");
+                }
                 "hide" => {
                     milkdrop::zamknij();
                     let _ = webview.evaluate_script("window.szklo&&szklo.milkStop()");
@@ -796,6 +834,12 @@ fn main() {
                     media_win::zwolnij(!widoczne);
                 }
                 licznik_tick = licznik_tick.wrapping_add(1);
+                // MilkDrop zamknięty od środka (np. jego własnym skrótem) → karta wraca do odtwarzacza
+                if licznik_tick % 30 == 0 && milkdrop::zakonczyl_sie() {
+                    log::info!("MilkDrop: program zakończył się sam");
+                    milkdrop::zamknij();
+                    let _ = webview.evaluate_script("window.szklo&&szklo.milkStop()");
+                }
                 // strumień silnika padł (odłączone urządzenie, zmiana formatu w Windows) → postaw silnik od nowa
                 if running.is_some() && licznik_tick % 30 == 0 && audio::blad_strumienia() {
                     log::warn!("silnik w aplikacji: strumień zgłosił błąd – uruchamiam ponownie");
@@ -821,6 +865,7 @@ fn main() {
                     // połączenie z wtyczką na urządzeniu BEZ APO to resztka po poprzednim wyjściu – nie pokazuj „przetwarza”
                     let bez_apo = matches!(wyjscie_apo.lock().ok().and_then(|g| g.clone()), Some((_, false)));
                     let st = if link.connected.load(Ordering::Relaxed) && !bez_apo {
+                        apo_czeka_od = None;
                         match wyjscie_apo.lock().ok().and_then(|g| g.clone()) {
                             Some((nazwa, _)) => format!("Szkło przetwarza dźwięk na „{nazwa}” (Equalizer APO)"),
                             None => "wtyczka w Equalizer APO połączona".to_string(),
@@ -835,8 +880,22 @@ fn main() {
                                 )
                             }
                             Some((nazwa, true)) => {
-                                opis_urz = format!("{nazwa} · Equalizer APO · czekam na dźwięk");
-                                format!("„{nazwa}” ma Equalizer APO – Szkło przetworzy dźwięk, gdy coś zacznie grać.")
+                                let gra_cos = w.odtw.stan.lock().map(|s| s.gra).unwrap_or(false)
+                                    || media_win::get().stan.lock().map(|z| z.gra).unwrap_or(false);
+                                if !gra_cos {
+                                    apo_czeka_od = None;
+                                }
+                                let od = *apo_czeka_od.get_or_insert_with(Instant::now);
+                                if gra_cos && od.elapsed() > Duration::from_secs(6) {
+                                    opis_urz = format!("{nazwa} · Equalizer APO niezaładowany");
+                                    format!(
+                                        "„{nazwa}” ma dodany Equalizer APO, ale Windows jeszcze go nie załadował – dźwięk omija Szkło. \
+                                         Kliknij „Załaduj bez restartu komputera” (dźwięk przerwie się na kilka sekund) albo uruchom ponownie komputer."
+                                    )
+                                } else {
+                                    opis_urz = format!("{nazwa} · Equalizer APO · czekam na dźwięk");
+                                    format!("„{nazwa}” ma Equalizer APO – Szkło przetworzy dźwięk, gdy coś zacznie grać.")
+                                }
                             }
                             None => {
                                 opis_urz = "Czekam na dźwięk w Equalizer APO".into();
@@ -850,6 +909,7 @@ fn main() {
                         js(&w.proxy, format!("szklo.status({})", json!(st)));
                         let brak = wyjscie_apo.lock().ok().and_then(|g| g.clone()).filter(|x| !x.1).map(|x| x.0);
                         js(&w.proxy, format!("szklo.brakApo({})", json!(brak)));
+                        js(&w.proxy, format!("szklo.apoNiezaladowany({})", st.contains("jeszcze go nie załadował")));
                     }
                 }
                 // wbudowany odtwarzacz: pełny stan po zmianie, pozycja ~10×/s, widmo ~30×/s (tylko powiększona karta)

@@ -59,6 +59,26 @@ pub fn otworz_device_selector() -> Result<(), String> {
     Err("tylko Windows".into())
 }
 
+/// Restart usługi dźwięku Windows (Audiosrv) – Windows ładuje wtedy świeżo dodany Equalizer APO bez restartu
+/// komputera. Wymaga zgody administratora (UAC); dźwięk we wszystkich programach przerywa się na parę sekund.
+#[cfg(windows)]
+pub fn restart_dzwieku() -> Result<(), String> {
+    use windows::core::{w, HSTRING};
+    use windows::Win32::UI::Shell::ShellExecuteW;
+    use windows::Win32::UI::WindowsAndMessaging::SW_HIDE;
+    let arg = HSTRING::from("-NoProfile -WindowStyle Hidden -Command \"Restart-Service -Name Audiosrv -Force\"");
+    // SAFETY: stałe łańcuchy; „runas” = uruchom jako administrator (okno zgody Windows).
+    let h = unsafe { ShellExecuteW(None, w!("runas"), w!("powershell.exe"), &arg, None, SW_HIDE) };
+    if (h.0 as isize) <= 32 {
+        return Err(format!("nie udało się uruchomić ponownie dźwięku Windows (kod {}) – uruchom ponownie komputer", h.0 as isize));
+    }
+    Ok(())
+}
+#[cfg(not(windows))]
+pub fn restart_dzwieku() -> Result<(), String> {
+    Err("tylko Windows".into())
+}
+
 /// (przyjazna nazwa domyślnego wyjścia, czy ma Equalizer APO). `None`, gdy nie da się ustalić.
 #[cfg(windows)]
 pub fn domyslne_wyjscie() -> Option<(String, bool)> {

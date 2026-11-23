@@ -6,7 +6,12 @@ $repo = Split-Path -Parent $PSScriptRoot
 Set-Location $repo
 $wersja = (Select-String -Path Cargo.toml -Pattern '^version\s*=\s*"([^"]+)"').Matches[0].Groups[1].Value
 Write-Host "Szkło $wersja – budowanie programu i wtyczki…"
+# Ścieżki z komputera budującego (folder użytkownika = jego nazwa, folder repozytorium) NIE mogą trafić do plików
+# programu: Rust zapisuje je w komunikatach błędów. Zamiana na neutralne nazwy. RUSTFLAGS zastępuje rustflags
+# z .cargo/config.toml, więc crt-static jest powtórzony tutaj.
+$env:RUSTFLAGS = "-C target-feature=+crt-static --remap-path-prefix=$($env:USERPROFILE)=~ --remap-path-prefix=$repo=szklo"
 cargo build --release -p szklo-app -p szklo-vst2
+Remove-Item Env:RUSTFLAGS
 if ($LASTEXITCODE -ne 0) { throw "cargo build nie powiodło się" }
 # najnowszy APK z dist (opcjonalny składnik instalatora)
 $apk = Get-ChildItem dist -Filter 'Szklo-*-arm64.apk' -ErrorAction SilentlyContinue | Sort-Object LastWriteTime | Select-Object -Last 1
@@ -20,4 +25,12 @@ if ($LASTEXITCODE -ne 0) { throw "wix build nie powiodło się" }
 wix msi validate $msi -sice ICE38 -sice ICE43 -sice ICE57 -sice ICE61
 if ($LASTEXITCODE -ne 0) { throw "walidacja MSI nie powiodła się" }
 Remove-Item "dist\Szklo-$wersja-Windows-x64.wixpdb" -ErrorAction SilentlyContinue
+# kontrola: w programie nie może być nazwy użytkownika ani ścieżki repozytorium
+$nazwa = Split-Path -Leaf $env:USERPROFILE
+foreach ($plik in "target\release\Szklo.exe", "target\release\szklo_vst2.dll") {
+    $tekst = [Text.Encoding]::ASCII.GetString([IO.File]::ReadAllBytes($plik))
+    if ($tekst.IndexOf($env:USERPROFILE, [StringComparison]::OrdinalIgnoreCase) -ge 0 -or $tekst.IndexOf("\$nazwa\", [StringComparison]::OrdinalIgnoreCase) -ge 0 -or $tekst.IndexOf($repo, [StringComparison]::OrdinalIgnoreCase) -ge 0) {
+        throw "w $plik została ścieżka z tego komputera – nie publikuj"
+    }
+}
 Write-Host "Gotowe: $msi ($([int]((Get-Item $msi).Length / 1MB)) MB)"

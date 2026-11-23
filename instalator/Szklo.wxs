@@ -1,0 +1,225 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Instalator Szkła (MSI, WiX 5). Budowa: instalator\zbuduj.ps1
+
+  Zawartość:  Szklo.exe, wtyczka szklo_vst2.dll (dla Equalizer APO), licencje, instrukcja, opcjonalnie APK na Androida.
+  Programy INNYCH autorów nie są dołączone (ich licencje/autorzy) – Szkło pobiera je z oficjalnych stron, gdy trzeba:
+    * Equalizer APO (Jonas Thedering, GPL-2.0) – opcja „Pobierz i zainstaluj Equalizer APO” na końcu instalacji
+      albo przycisk w programie,
+    * Microsoft Edge WebView2 Runtime – jest w Windows 11; gdy go brak, Szkło zaproponuje instalację przy starcie,
+    * MilkDrop 3 (milkdrop2077, BSD-3) – przycisk „Pobierz i zainstaluj” w karcie odtwarzacza,
+    * aplikacja Spotify – opcjonalnie, ze Sklepu Microsoft.
+  Biblioteka uruchomieniowa C jest wbudowana w pliki Szkła (bez Visual C++ Redistributable).
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package Name="Szkło" Manufacturer="Szkło (projekt otwarty, MIT)" Version="$(var.Wersja)"
+           UpgradeCode="6B0E5C9A-3F21-4C5D-9E7A-2D4B8C1F0A37" Language="1045" Codepage="1250"
+           Scope="perMachine" InstallerVersion="500" Compressed="yes">
+    <SummaryInformation Description="Szkło – procesor dźwięku dla Windows" Manufacturer="Szkło" Codepage="1250" />
+    <MajorUpgrade DowngradeErrorMessage="Zainstalowana jest nowsza wersja Szkła. Odinstaluj ją, jeśli chcesz wrócić do starszej." AllowSameVersionUpgrades="yes" />
+    <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
+
+    <Icon Id="SzkloIco" SourceFile="$(var.Zrodla)\app-pc\ui\szklo.ico" />
+    <Property Id="ARPPRODUCTICON" Value="SzkloIco" />
+    <Property Id="ARPURLINFOABOUT" Value="https://github.com/p-ozga/szklo" />
+    <Property Id="ARPNOMODIFY" Value="1" />
+    <Property Id="ARPNOREPAIR" Value="1" />
+
+    <!-- Co jest już w systemie (do opisu w kreatorze i domyślnych zaznaczeń) -->
+    <Property Id="APOJEST">
+      <RegistrySearch Id="SzukajApo" Root="HKLM" Key="SOFTWARE\EqualizerAPO" Name="InstallPath" Type="raw" Bitness="always64" />
+    </Property>
+    <Property Id="WV2JEST">
+      <RegistrySearch Id="SzukajWv2" Root="HKLM" Key="SOFTWARE\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}" Name="pv" Type="raw" Bitness="always32" />
+    </Property>
+
+    <!-- Wybory w kreatorze (1 = zaznaczone) -->
+    <Property Id="WTYCZKA" Value="1" Secure="yes" />
+    <Property Id="PULPIT" Value="1" Secure="yes" />
+    <Property Id="ANDROID" Secure="yes" />
+    <Property Id="POBIERZAPO" Value="1" Secure="yes" />
+    <Property Id="URUCHOM" Value="1" />
+
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="Szklo">
+        <Directory Id="DirAndroid" Name="Android" />
+        <Directory Id="DirDocs" Name="docs" />
+      </Directory>
+    </StandardDirectory>
+    <StandardDirectory Id="ProgramMenuFolder" />
+    <StandardDirectory Id="DesktopFolder" />
+    <StandardDirectory Id="System64Folder" />
+
+    <Feature Id="Szklo" Title="Szkło" Level="1" AllowAbsent="no" Display="expand">
+      <Component Id="CmpExe" Directory="INSTALLFOLDER" Bitness="always64">
+        <File Id="SzkloExe" Source="$(var.Zrodla)\target\release\Szklo.exe" KeyPath="yes" />
+        <Shortcut Id="SkrotMenu" Directory="ProgramMenuFolder" Name="Szkło" Description="Procesor dźwięku" Target="[#SzkloExe]" WorkingDirectory="INSTALLFOLDER" Icon="SzkloIco" />
+      </Component>
+      <Component Id="CmpTeksty" Directory="INSTALLFOLDER" Bitness="always64">
+        <File Id="Licencja" Source="$(var.Zrodla)\LICENSE" Name="LICENCJA.txt" KeyPath="yes" />
+      </Component>
+      <Component Id="CmpObce" Directory="INSTALLFOLDER" Bitness="always64">
+        <File Id="Obce" Source="$(var.Zrodla)\app-pc\ui\licencje.txt" Name="ELEMENTY_CUDZE.txt" KeyPath="yes" />
+      </Component>
+      <Component Id="CmpDocs" Directory="DirDocs" Bitness="always64">
+        <File Id="DocApo" Source="$(var.Zrodla)\docs\equalizer_apo.md" KeyPath="yes" />
+      </Component>
+
+
+      <Feature Id="Wtyczka" Title="Wtyczka Szkła dla Equalizer APO" Level="1">
+        <Component Id="CmpWtyczka" Directory="INSTALLFOLDER" Bitness="always64">
+          <File Id="WtyczkaDll" Source="$(var.Zrodla)\target\release\szklo_vst2.dll" KeyPath="yes" />
+        </Component>
+      </Feature>
+
+      <Feature Id="Pulpit" Title="Skrót na pulpicie" Level="1">
+      <Component Id="CmpPulpit" Directory="DesktopFolder" Bitness="always64">
+        <Shortcut Id="SkrotPulpit" Name="Szkło" Target="[INSTALLFOLDER]Szklo.exe" WorkingDirectory="INSTALLFOLDER" Icon="SzkloIco" />
+        <RegistryValue Root="HKLM" Key="Software\Szklo\Instalacja" Name="SkrotPulpit" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+      </Feature>
+
+      <Feature Id="Android" Title="Aplikacja na Androida (APK)" Level="1000">
+      <Component Id="CmpApk" Directory="DirAndroid" Bitness="always64">
+        <File Id="Apk" Source="$(var.Apk)" Name="Szklo-Android.apk" KeyPath="yes" />
+      </Component>
+      </Feature>
+    </Feature>
+
+    <!-- Działające Szkło zamknij przed podmianą plików (aktualizacja/odinstalowanie) -->
+    <CustomAction Id="ZamknijSzklo" Directory="System64Folder" ExeCommand="&quot;[System64Folder]taskkill.exe&quot; /F /IM Szklo.exe" Execute="immediate" Return="ignore" Impersonate="yes" />
+    <!-- Wtyczka w Equalizer APO: kopia do C:\ProgramData\Szklo i wpis w config.txt (prawa administratora) -->
+    <CustomAction Id="PodlaczWtyczke" FileRef="SzkloExe" ExeCommand="--instaluj-wtyczke" Execute="deferred" Impersonate="no" Return="ignore" />
+    <CustomAction Id="OdlaczWtyczke" FileRef="SzkloExe" ExeCommand="--odinstaluj-wtyczke" Execute="deferred" Impersonate="no" Return="ignore" />
+    <!-- Po instalacji: uruchom Szkło (z parametrem instaluj-apo od razu pobierze i zainstaluje Equalizer APO) -->
+    <CustomAction Id="UruchomSzklo" FileRef="SzkloExe" ExeCommand="" Execute="immediate" Impersonate="yes" Return="asyncNoWait" />
+    <CustomAction Id="UruchomSzkloApo" FileRef="SzkloExe" ExeCommand="--instaluj-apo" Execute="immediate" Impersonate="yes" Return="asyncNoWait" />
+
+    <InstallExecuteSequence>
+      <Custom Action="ZamknijSzklo" Before="InstallValidate" />
+      <Custom Action="OdlaczWtyczke" Before="RemoveFiles" Condition="REMOVE=&quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE" />
+      <Custom Action="PodlaczWtyczke" After="InstallFiles" Condition="&amp;Wtyczka=3" />
+    </InstallExecuteSequence>
+
+    <!-- ───────────── kreator (własne okna; tekst po polsku) ───────────── -->
+    <UI Id="Kreator">
+      <TextStyle Id="Tekst" FaceName="Segoe UI" Size="9" />
+      <TextStyle Id="Tytul" FaceName="Segoe UI" Size="14" Bold="yes" />
+      <TextStyle Id="Maly" FaceName="Segoe UI" Size="8" />
+      <Property Id="DefaultUIFont" Value="Tekst" />
+      <Property Id="ErrorDialog" Value="Blad" />
+
+      <Dialog Id="Witaj" Width="400" Height="300" Title="Instalacja Szkła">
+        <Control Id="Naglowek" Type="Text" X="20" Y="14" Width="360" Height="26" Text="{\Tytul}Szkło [ProductVersion]" />
+        <Control Id="Opis" Type="Text" X="20" Y="44" Width="360" Height="30" Text="Procesor dźwięku dla Windows: poprawia brzmienie całego dźwięku komputera (Spotify, YouTube, gry), ma odtwarzacz i wizualizację." />
+        <Control Id="CzWtyczka" Type="CheckBox" X="20" Y="80" Width="360" Height="14" Property="WTYCZKA" CheckBoxValue="1" Text="Podłącz Szkło do Equalizer APO (przetwarzanie całego dźwięku systemu)" />
+        <Control Id="CzApo" Type="CheckBox" X="20" Y="98" Width="360" Height="14" Property="POBIERZAPO" CheckBoxValue="1" Text="Po instalacji pobierz i zainstaluj Equalizer APO (wymagany, ok. 12 MB)" DisableCondition="APOJEST OR WTYCZKA&lt;&gt;1" EnableCondition="NOT APOJEST AND WTYCZKA=1" />
+        <Control Id="ApoJest" Type="Text" X="34" Y="114" Width="346" Height="12" Text="{\Maly}Equalizer APO jest już zainstalowany." ShowCondition="APOJEST" HideCondition="NOT APOJEST" />
+        <Control Id="CzPulpit" Type="CheckBox" X="20" Y="130" Width="360" Height="14" Property="PULPIT" CheckBoxValue="1" Text="Skrót na pulpicie" />
+        <Control Id="CzAndroid" Type="CheckBox" X="20" Y="148" Width="360" Height="14" Property="ANDROID" CheckBoxValue="1" Text="Skopiuj aplikację na Androida (APK) do folderu programu" />
+        <Control Id="Obce" Type="Text" X="20" Y="170" Width="360" Height="68" Text="{\Maly}Programy innych autorów NIE są częścią instalatora – Szkło pobiera je z ich oficjalnych stron, dopiero gdy są potrzebne: Equalizer APO (Jonas Thedering, GPL-2.0, SourceForge), Microsoft Edge WebView2 Runtime (Microsoft; jest w Windows 11), MilkDrop 3 (milkdrop2077, BSD-3; przycisk w odtwarzaczu). Aplikację Spotify instalujesz sam ze Sklepu Microsoft. Szkło jest na licencji MIT; lista bibliotek i ich licencji: ELEMENTY_CUDZE.txt w folderze programu." />
+        <Control Id="Folder" Type="Text" X="20" Y="242" Width="360" Height="12" Text="{\Maly}Folder: [INSTALLFOLDER]" />
+        <Control Id="Linia" Type="Line" X="0" Y="262" Width="400" Height="0" />
+        <Control Id="Instaluj" Type="PushButton" X="236" Y="272" Width="76" Height="18" Default="yes" Text="Instaluj">
+          <Publish Event="AddLocal" Value="Wtyczka" Condition="WTYCZKA=1" />
+          <Publish Event="Remove" Value="Wtyczka" Condition="WTYCZKA&lt;&gt;1" />
+          <Publish Event="AddLocal" Value="Pulpit" Condition="PULPIT=1" />
+          <Publish Event="Remove" Value="Pulpit" Condition="PULPIT&lt;&gt;1" />
+          <Publish Event="AddLocal" Value="Android" Condition="ANDROID=1" />
+          <Publish Event="Remove" Value="Android" Condition="ANDROID&lt;&gt;1" />
+          <Publish Event="EndDialog" Value="Return" />
+        </Control>
+        <Control Id="Anuluj" Type="PushButton" X="318" Y="272" Width="66" Height="18" Cancel="yes" Text="Anuluj">
+          <Publish Event="EndDialog" Value="Exit" />
+        </Control>
+      </Dialog>
+
+      <Dialog Id="Postep" Width="400" Height="300" Title="Instalacja Szkła" Modeless="yes">
+        <Control Id="Naglowek" Type="Text" X="20" Y="14" Width="360" Height="26" Text="{\Tytul}Instaluję Szkło…" />
+        <Control Id="Akcja" Type="Text" X="20" Y="90" Width="360" Height="14">
+          <Subscribe Event="ActionText" Attribute="Text" />
+        </Control>
+        <Control Id="Pasek" Type="ProgressBar" X="20" Y="110" Width="360" Height="12" ProgressBlocks="yes" Text="Postęp">
+          <Subscribe Event="SetProgress" Attribute="Progress" />
+        </Control>
+        <Control Id="Linia" Type="Line" X="0" Y="262" Width="400" Height="0" />
+        <Control Id="Anuluj" Type="PushButton" X="318" Y="272" Width="66" Height="18" Cancel="yes" Text="Anuluj">
+          <Publish Event="SpawnDialog" Value="CzyPrzerwac" />
+        </Control>
+      </Dialog>
+
+      <Dialog Id="CzyPrzerwac" Width="260" Height="85" Title="Instalacja Szkła" NoMinimize="yes">
+        <Control Id="Tekst" Type="Text" X="15" Y="15" Width="230" Height="30" Text="Przerwać instalację Szkła?" />
+        <Control Id="Tak" Type="PushButton" X="100" Y="57" Width="66" Height="18" Text="Tak">
+          <Publish Event="EndDialog" Value="Exit" />
+        </Control>
+        <Control Id="Nie" Type="PushButton" X="176" Y="57" Width="66" Height="18" Default="yes" Cancel="yes" Text="Nie">
+          <Publish Event="EndDialog" Value="Return" />
+        </Control>
+      </Dialog>
+
+      <Dialog Id="Koniec" Width="400" Height="300" Title="Instalacja Szkła">
+        <Control Id="Naglowek" Type="Text" X="20" Y="14" Width="360" Height="26" Text="{\Tytul}Szkło jest zainstalowane" />
+        <Control Id="Opis" Type="Text" X="20" Y="50" Width="360" Height="60" Text="Szkło znajdziesz w menu Start. Po uruchomieniu siedzi w zasobniku obok zegara. Jeśli zaznaczyłeś pobranie Equalizer APO, Szkło zrobi to zaraz po starcie: przejdź przez kroki instalatora Equalizer APO i zaznacz w nim urządzenia, na których słuchasz (słuchawki, głośniki)." />
+        <Control Id="Wv2" Type="Text" X="20" Y="116" Width="360" Height="30" Text="Brak składnika Microsoft Edge WebView2 Runtime – Szkło zaproponuje jego instalację przy pierwszym uruchomieniu." ShowCondition="NOT WV2JEST" HideCondition="WV2JEST" />
+        <Control Id="CzUruchom" Type="CheckBox" X="20" Y="200" Width="360" Height="14" Property="URUCHOM" CheckBoxValue="1" Text="Uruchom Szkło" />
+        <Control Id="Linia" Type="Line" X="0" Y="262" Width="400" Height="0" />
+        <Control Id="Zakoncz" Type="PushButton" X="318" Y="272" Width="66" Height="18" Default="yes" Cancel="yes" Text="Zakończ">
+          <Publish Event="DoAction" Value="UruchomSzkloApo" Condition="URUCHOM=1 AND POBIERZAPO=1 AND WTYCZKA=1 AND NOT APOJEST AND NOT Installed" />
+          <Publish Event="DoAction" Value="UruchomSzklo" Condition="URUCHOM=1 AND NOT (POBIERZAPO=1 AND WTYCZKA=1 AND NOT APOJEST) AND NOT Installed" />
+          <Publish Event="EndDialog" Value="Return" />
+        </Control>
+      </Dialog>
+
+      <Dialog Id="Przerwano" Width="400" Height="300" Title="Instalacja Szkła">
+        <Control Id="Naglowek" Type="Text" X="20" Y="14" Width="360" Height="26" Text="{\Tytul}Instalacja przerwana" />
+        <Control Id="Opis" Type="Text" X="20" Y="50" Width="360" Height="40" Text="Szkło nie zostało zainstalowane. Nic w systemie nie zostało zmienione." />
+        <Control Id="Linia" Type="Line" X="0" Y="262" Width="400" Height="0" />
+        <Control Id="Zakoncz" Type="PushButton" X="318" Y="272" Width="66" Height="18" Default="yes" Cancel="yes" Text="Zamknij">
+          <Publish Event="EndDialog" Value="Return" />
+        </Control>
+      </Dialog>
+
+      <Dialog Id="Nieudana" Width="400" Height="300" Title="Instalacja Szkła">
+        <Control Id="Naglowek" Type="Text" X="20" Y="14" Width="360" Height="26" Text="{\Tytul}Instalacja nie powiodła się" />
+        <Control Id="Opis" Type="Text" X="20" Y="50" Width="360" Height="50" Text="Szkło nie zostało zainstalowane, zmiany zostały wycofane. Spróbuj ponownie; jeśli błąd się powtórzy, uruchom instalator z wiersza poleceń z dziennikiem: msiexec /i Szklo.msi /l*v szklo-instalacja.log" />
+        <Control Id="Linia" Type="Line" X="0" Y="262" Width="400" Height="0" />
+        <Control Id="Zakoncz" Type="PushButton" X="318" Y="272" Width="66" Height="18" Default="yes" Cancel="yes" Text="Zamknij">
+          <Publish Event="EndDialog" Value="Return" />
+        </Control>
+      </Dialog>
+
+      <Dialog Id="FilesInUse" Width="400" Height="220" Title="Instalacja Szkła" KeepModeless="yes">
+        <Control Id="Tekst" Type="Text" X="20" Y="14" Width="360" Height="30" Text="Te programy używają plików, które trzeba podmienić. Zamknij je i kliknij „Ponów” albo „Pomiń” (wtedy może być potrzebny restart komputera)." />
+        <Control Id="Lista" Type="ListBox" X="20" Y="50" Width="360" Height="110" Property="FileInUseProcess" Sunken="yes" TabSkip="yes" />
+        <Control Id="Ponow" Type="PushButton" X="160" Y="190" Width="72" Height="18" Default="yes" Text="Ponów"><Publish Event="EndDialog" Value="Retry" /></Control>
+        <Control Id="Pomin" Type="PushButton" X="238" Y="190" Width="72" Height="18" Text="Pomiń"><Publish Event="EndDialog" Value="Ignore" /></Control>
+        <Control Id="Wyjdz" Type="PushButton" X="316" Y="190" Width="66" Height="18" Cancel="yes" Text="Przerwij"><Publish Event="EndDialog" Value="Exit" /></Control>
+      </Dialog>
+
+      <Dialog Id="Blad" Width="300" Height="110" Title="Instalacja Szkła" ErrorDialog="yes">
+        <Control Id="ErrorText" Type="Text" X="15" Y="12" Width="270" Height="60" TabSkip="no" Text="Błąd" />
+        <Control Id="A" Type="PushButton" X="214" Y="84" Width="72" Height="18" TabSkip="yes" Text="Przerwij"><Publish Event="EndDialog" Value="ErrorAbort" /></Control>
+        <Control Id="C" Type="PushButton" X="214" Y="84" Width="72" Height="18" TabSkip="yes" Text="Anuluj"><Publish Event="EndDialog" Value="ErrorCancel" /></Control>
+        <Control Id="I" Type="PushButton" X="214" Y="84" Width="72" Height="18" TabSkip="yes" Text="Pomiń"><Publish Event="EndDialog" Value="ErrorIgnore" /></Control>
+        <Control Id="N" Type="PushButton" X="214" Y="84" Width="72" Height="18" TabSkip="yes" Text="Nie"><Publish Event="EndDialog" Value="ErrorNo" /></Control>
+        <Control Id="O" Type="PushButton" X="214" Y="84" Width="72" Height="18" TabSkip="yes" Text="OK"><Publish Event="EndDialog" Value="ErrorOk" /></Control>
+        <Control Id="R" Type="PushButton" X="214" Y="84" Width="72" Height="18" TabSkip="yes" Text="Ponów"><Publish Event="EndDialog" Value="ErrorRetry" /></Control>
+        <Control Id="Y" Type="PushButton" X="214" Y="84" Width="72" Height="18" TabSkip="yes" Text="Tak"><Publish Event="EndDialog" Value="ErrorYes" /></Control>
+      </Dialog>
+
+      <InstallUISequence>
+        <Show Dialog="Witaj" After="CostFinalize" Condition="NOT Installed" />
+        <Show Dialog="Postep" After="Witaj" />
+        <Show Dialog="Koniec" OnExit="success" />
+        <Show Dialog="Przerwano" OnExit="cancel" />
+        <Show Dialog="Nieudana" OnExit="error" />
+      </InstallUISequence>
+      <AdminUISequence>
+        <Show Dialog="Koniec" OnExit="success" />
+        <Show Dialog="Przerwano" OnExit="cancel" />
+        <Show Dialog="Nieudana" OnExit="error" />
+      </AdminUISequence>
+    </UI>
+  </Package>
+</Wix>

@@ -180,6 +180,9 @@ select option{background:#0d2326;color:var(--tekst)}
 .milk-brak{position:absolute;inset:56px 12px 12px;z-index:5;display:flex;flex-direction:column;gap:10px;padding:18px;border-radius:14px;background:#0B2A2F;border:1px solid rgba(37,226,247,.25)}
 .milk-brak[hidden]{display:none}
 .milk-brak p{margin:0;line-height:1.5}
+.apo-postep{margin:6px 0 0;font-size:12px;line-height:1.45;color:#7FEFFB;min-height:0}
+.apo-postep:empty{display:none}
+.apo-postep.blad{color:#EEF9FA}
 .milk-postep{color:#7FEFFB;min-height:1.5em}
 .milk-postep.blad{color:#EEF9FA}
 .milk-brak-przyc{display:flex;flex-wrap:wrap;gap:8px}
@@ -403,6 +406,9 @@ select option{background:#0d2326;color:var(--tekst)}
             <select id="wySel"></select>
           </div>
           <div class="status" id="status">Stan: <b>—</b></div>
+          <button type="button" class="btn-szklo btn-glowny" id="btnApoInstaluj" hidden title="Pobiera oficjalny instalator Equalizer APO (Jonas Thedering, licencja GPL-2.0) z SourceForge i go uruchamia. Windows poprosi o zgodę administratora.">Pobierz i zainstaluj Equalizer APO</button>
+          <button type="button" class="btn-szklo btn-glowny" id="btnApoPodlacz" hidden title="Wpisuje wtyczkę Szkła do konfiguracji Equalizer APO (zgoda administratora).">Podłącz Szkło do Equalizer APO</button>
+          <p class="apo-postep" id="apoPostep" role="status" aria-live="polite"></p>
           <button type="button" class="btn-szklo btn-glowny" id="btnApoDodaj" hidden>Dodaj Equalizer APO do tego urządzenia</button>
           <button type="button" class="btn-szklo btn-glowny" id="btnApoRestart" hidden title="Uruchamia ponownie usługę dźwięku Windows (poprosi o zgodę administratora). Dźwięk we wszystkich programach przerwie się na kilka sekund.">Załaduj bez restartu komputera</button>
           <p>Tryb automatyczny: Szkło przetwarza cały dźwięk na urządzeniu, którego właśnie używa Windows – podłącz słuchawki albo połącz Bluetooth, a Szkło przejdzie na nie samo (urządzenie musi mieć Equalizer APO – przycisk wyżej doda go jednym kliknięciem). Tryb ręczny: wybrane wejście → wybrane wyjście.</p>
@@ -607,6 +613,8 @@ document.addEventListener('DOMContentLoaded', () => {
   $('#zrApp').addEventListener('click', () => ustawZrodlo('app'));
   $('#btnApoDodaj').addEventListener('click', () => wyslij({ t: 'apo_dodaj' }));
   $('#btnApoRestart').addEventListener('click', () => wyslij({ t: 'apo_restart' }));
+  $('#btnApoInstaluj').addEventListener('click', () => { $('#btnApoInstaluj').disabled = true; $('#apoPostep').textContent = 'Łączę się z SourceForge…'; wyslij({ t: 'apo_instaluj' }); });
+  $('#btnApoPodlacz').addEventListener('click', () => wyslij({ t: 'apo_podlacz' }));
   document.querySelectorAll('.btn-obroc').forEach(b => b.addEventListener('click', () => obroc()));
 });
 /* ---------- Spotify w odtwarzaczu ---------- */
@@ -987,6 +995,8 @@ window.szklo = {
   odtwPoz(p, g) { if (g && !(ODTW.stan && ODTW.stan.gra)) ZEW.zrodlo = 'pliki'; odtwPozycja(p, g); },
   zewn(z) { if (!z) return; if (z.gra && !(ZEW.stan && ZEW.stan.gra)) ZEW.zrodlo = 'app'; z.okladka = ZEW.okladka || ''; ZEW.stan = z; odtwNaglowek(); },
   zewnOkladka(d) { ZEW.okladka = d || ''; if (ZEW.stan) { ZEW.stan.okladka = ZEW.okladka; odtwNaglowek(); } },
+  apoInstalacja(s) { $('#btnApoInstaluj').hidden = !!s.jest; $('#btnApoPodlacz').hidden = !s.jest || !!s.wtyczka; if (s.jest && s.wtyczka) $('#apoPostep').textContent = $('#apoPostep').classList.contains('blad') ? '' : $('#apoPostep').textContent; },
+  apoPostep(t, blad) { const p = $('#apoPostep'); p.textContent = t; p.classList.toggle('blad', !!blad); if (blad) $('#btnApoInstaluj').disabled = false; },
   apoNiezaladowany(b) { $('#btnApoRestart').hidden = !b; },
   brakApo(nazwa) { const b = $('#btnApoDodaj'); b.hidden = !nazwa; if (nazwa) b.textContent = `Dodaj Equalizer APO do: ${nazwa}`; },
   milkStop(blad) { milkStop(false); if (blad) $('#odtwBlad').textContent = 'MilkDrop: ' + blad; },

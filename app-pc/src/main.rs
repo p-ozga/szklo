@@ -9,6 +9,7 @@ mod apo;
 mod apo_check;
 mod audio;
 mod dziennik;
+mod instalacja;
 mod odtwarzacz;
 mod media_win;
 mod milkdrop;
@@ -209,6 +210,12 @@ fn obsluz(w: &Arc<Wspolne>, body: &str) {
             js(&w.proxy, format!("szklo.odtw({})", odtw_json(w, true)));
             js(&w.proxy, format!("szklo.spotify({})", spotify_pc::stan_json()));
             js(&w.proxy, format!("szklo.spUkryte({})", spotify_okno::wlaczone()));
+            // pierwsze uruchomienie z instalatora z zaznaczonym „zainstaluj Equalizer APO”
+            static PO_INSTALACJI: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+            if std::env::args().any(|a| a == "--instaluj-apo") && !instalacja::apo_zainstalowany() && !PO_INSTALACJI.swap(true, Ordering::Relaxed) {
+                js(&w.proxy, "setTimeout(()=>{ if(!naTyle) szklo.obroc(); },400)".into());
+                apo_instaluj(w);
+            }
             // test wizualny strony tylnej: Szklo.exe --tyl
             if std::env::args().any(|a| a == "--tyl") {
                 js(&w.proxy, "setTimeout(()=>szklo.obroc(),300)".into());
@@ -331,6 +338,20 @@ fn obsluz(w: &Arc<Wspolne>, body: &str) {
                 log::error!("Equalizer APO: {e}");
                 js(&w.proxy, format!("szklo.status({})", json!(e)));
             }
+        }
+        "apo_instaluj" => apo_instaluj(w),
+        "apo_podlacz" => {
+            let w2 = w.clone();
+            std::thread::spawn(move || {
+                log::info!("Equalizer APO: podłączam wtyczkę Szkła (na prośbę użytkownika)");
+                match instalacja::podlacz_wtyczke() {
+                    Ok(()) => js(&w2.proxy, format!("szklo.apoPostep({},false)", json!("Szkło jest podłączone do Equalizer APO."))),
+                    Err(e) => {
+                        log::error!("Equalizer APO: {e}");
+                        js(&w2.proxy, format!("szklo.apoPostep({},true)", json!(e)));
+                    }
+                }
+            });
         }
         "apo_restart" => {
             log::info!("Equalizer APO: restart usługi dźwięku Windows (na prośbę użytkownika)");
@@ -569,10 +590,19 @@ fn juz_dziala() -> bool {
 }
 
 fn main() {
+    // tryby instalatora (--instaluj-wtyczke / --odinstaluj-wtyczke): bez okna, także gdy Szkło już działa
+    if std::env::args().any(|a| a.starts_with("--instaluj-wtyczke") || a.starts_with("--odinstaluj-wtyczke")) {
+        dziennik::init();
+        std::process::exit(instalacja::obsluz_argumenty().unwrap_or(2));
+    }
     if juz_dziala() {
         return;
     }
     dziennik::init();
+    // bez WebView2 (Microsoft) okno się nie otworzy – zaproponuj instalację
+    if !instalacja::zapewnij_webview2() {
+        return;
+    }
     spotify_pc::start_jesli_zalogowany();
     let el = EventLoopBuilder::<Zd>::with_user_event().build();
     let proxy = el.create_proxy();
@@ -671,6 +701,8 @@ fn main() {
         std::thread::spawn(move || {
             let mut ost = String::new();
             loop {
+                // czy Equalizer APO jest zainstalowany i czy ładuje wtyczkę Szkła (odczyt rejestru i małego pliku)
+                instalacja_stan::ustaw(instalacja::apo_zainstalowany(), instalacja::wtyczka_zarejestrowana());
                 let r = apo_check::domyslne_wyjscie();
                 // zmiana domyślnego wyjścia (słuchawki, Bluetooth…) → odtwarzacz i widmo przechodzą na nowe urządzenie
                 if r.is_none() && ost != "?" {
@@ -864,7 +896,16 @@ fn main() {
                 if apo {
                     // połączenie z wtyczką na urządzeniu BEZ APO to resztka po poprzednim wyjściu – nie pokazuj „przetwarza”
                     let bez_apo = matches!(wyjscie_apo.lock().ok().and_then(|g| g.clone()), Some((_, false)));
-                    let st = if link.connected.load(Ordering::Relaxed) && !bez_apo {
+                    let (apo_jest, wtyczka_jest) = instalacja_stan::odczyt();
+                    let st = if !apo_jest {
+                        opis_urz = "Brak Equalizer APO".into();
+                        "Equalizer APO nie jest zainstalowany – bez niego Szkło nie przetwarza dźwięku całego systemu. \
+                         Kliknij „Pobierz i zainstaluj Equalizer APO” (bezpłatny program innego autora)."
+                            .to_string()
+                    } else if !wtyczka_jest && !link.connected.load(Ordering::Relaxed) {
+                        opis_urz = "Szkło niepodłączone do Equalizer APO".into();
+                        "Equalizer APO jest zainstalowany, ale nie ładuje wtyczki Szkła. Kliknij „Podłącz Szkło do Equalizer APO”.".to_string()
+                    } else if link.connected.load(Ordering::Relaxed) && !bez_apo {
                         apo_czeka_od = None;
                         match wyjscie_apo.lock().ok().and_then(|g| g.clone()) {
                             Some((nazwa, _)) => format!("Szkło przetwarza dźwięk na „{nazwa}” (Equalizer APO)"),
@@ -907,7 +948,8 @@ fn main() {
                         log::info!("stan: {st}");
                         ost_status = st.clone();
                         js(&w.proxy, format!("szklo.status({})", json!(st)));
-                        let brak = wyjscie_apo.lock().ok().and_then(|g| g.clone()).filter(|x| !x.1).map(|x| x.0);
+                        let brak = wyjscie_apo.lock().ok().and_then(|g| g.clone()).filter(|x| !x.1 && apo_jest).map(|x| x.0);
+                        js(&w.proxy, format!("szklo.apoInstalacja({{jest:{apo_jest},wtyczka:{wtyczka_jest}}})"));
                         js(&w.proxy, format!("szklo.brakApo({})", json!(brak)));
                         js(&w.proxy, format!("szklo.apoNiezaladowany({})", st.contains("jeszcze go nie załadował")));
                     }
@@ -1050,3 +1092,38 @@ fn main() {
     });
 }
 
+
+/// „Pobierz i zainstaluj Equalizer APO” – w tle, postęp na karcie „Źródło dźwięku”.
+fn apo_instaluj(w: &Arc<Wspolne>) {
+    let w2 = w.clone();
+    std::thread::spawn(move || {
+        log::info!("Equalizer APO: pobieranie i instalacja (na prośbę użytkownika)");
+        let p = w2.proxy.clone();
+        match instalacja::pobierz_i_zainstaluj_apo(&|t| js(&p, format!("szklo.apoPostep({},false)", json!(t)))) {
+            Ok(()) => js(
+                &w2.proxy,
+                format!(
+                    "szklo.apoPostep({},false)",
+                    json!("Equalizer APO zainstalowany, Szkło podłączone. Kliknij „Załaduj bez restartu komputera” albo uruchom ponownie komputer.")
+                ),
+            ),
+            Err(e) => {
+                log::error!("Equalizer APO: {e}");
+                js(&w2.proxy, format!("szklo.apoPostep({},true)", json!(e)));
+            }
+        }
+    });
+}
+
+/// Stan instalacji Equalizer APO / wtyczki – liczony w wątku pilnującym wyjścia, czytany przez pętlę UI.
+mod instalacja_stan {
+    use std::sync::atomic::{AtomicU8, Ordering};
+    static S: AtomicU8 = AtomicU8::new(0b11); // do pierwszego sprawdzenia: zakładamy, że wszystko jest
+    pub fn ustaw(apo: bool, wtyczka: bool) {
+        S.store(apo as u8 | (wtyczka as u8) << 1, Ordering::Relaxed);
+    }
+    pub fn odczyt() -> (bool, bool) {
+        let s = S.load(Ordering::Relaxed);
+        (s & 1 != 0, s & 2 != 0)
+    }
+}

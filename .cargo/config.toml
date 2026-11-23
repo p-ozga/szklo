@@ -1,0 +1,4 @@
+# Biblioteka uruchomieniowa C wbudowana w Szklo.exe i wtyczkę (bez osobnego „Microsoft Visual C++ Redistributable”):
+# instalator nie musi go dołączać, a wtyczka w usłudze dźwięku Windows nie zależy od tego, co jest w systemie.
+[target.x86_64-pc-windows-msvc]
+rustflags = ["-C", "target-feature=+crt-static"]

@@ -168,6 +168,9 @@ impl BusA {
             self.n_raw[k] = 1.66 * if m == f64::MAX { 0.0 } else { m };
         }
         if a_nr > 0.0 {
+            // 2026-11-25: górna połowa suwaka zjadała muzykę (przy 100% czyste nagranie traciło 4–8 JND, przy 50% odszumianie
+            // było najlepsze) – skala złagodzona: nowe 100% ≈ dawne 72%, 50% ≈ dawne 43%
+            let a_nr = 0.72 * a_nr.powf(0.75);
             let g_min = und(-15.0 * a_nr);
             let beta = 1.0 + a_nr;
             let l_cap = lin(a_nr, -66.0, -42.0);
@@ -393,7 +396,8 @@ impl Module for BusA {
         self.ef = 0.0;
         self.ef_hist = vec![0.0; ctx.ms(40.0) + 1];
         self.hist_pos = 0;
-        self.gain_line = vec![1.0; n + ctx.ms(20.0)];
+        // zapas co najmniej na jeden blok (256 próbek): przy fs < 12,8 kHz 20 ms było krótsze i indeks się zawijał
+        self.gain_line = vec![1.0; n + ctx.ms(20.0).max(crate::module::MAX_BLOCK) + 1];
         self.line_pos = 0;
         self.dead = 0;
         self.t_in = 0;

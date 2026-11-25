@@ -82,8 +82,32 @@ object Presets {
         ),
     )
 
+    /** Presety z badań nad uwagą i dźwiękiem (docs/skupienie.md); wartości = core/src/presets.rs. */
+    val SKUPIENIE = Preset(
+        key = "skupienie", name = "Skupienie", master = 1.0f,
+        modules = build(
+            m(M.DECLIPPER, true, 40), m(M.DELOSSIFIER, true, 40), m(M.DEQUANTIZER, true, 50),
+            m(M.AGC, true, 60), m(M.MULTIBAND2, true, 30), m(M.DEEP_BASS, true, 25),
+            m(M.HARMONIC_BASS, true, 25), m(M.WARM_BASS, true, 45), m(M.RADIO_BASS, true, 40),
+            m(M.AUTO_EQ, true, 40), m(M.SPECTRUM_BALANCE, true, 30), m(M.WIDTH, true, 15),
+            m(M.HOOD, true, 30), m(M.LESS_WORDS, true, 85), m(M.EVEN_STREAM, true, 60),
+            m(M.BED, true, 45), m(M.PRE_LIMITER, true, 40), m(M.HARD_LIMIT, true, 0),
+        ),
+    )
+
+    val WYCISZENIE = Preset(
+        key = "wyciszenie", name = "Wyciszenie", master = 1.0f,
+        modules = build(
+            m(M.DECLIPPER, true, 40), m(M.DELOSSIFIER, true, 40), m(M.DEQUANTIZER, true, 50),
+            m(M.AGC, true, 70), m(M.MULTIBAND2, true, 40), m(M.COMPRESSOR, true, 40),
+            m(M.WARM_BASS, true, 30), m(M.AUTO_EQ, true, 40), m(M.SPECTRUM_BALANCE, true, 50),
+            m(M.WIDTH, true, 10), m(M.HOOD, true, 45), m(M.EVEN_STREAM, true, 80),
+            m(M.PRE_LIMITER, true, 50), m(M.HARD_LIMIT, true, 0),
+        ),
+    )
+
     /** Kolejność w menu. */
-    val all: List<Preset> = listOf(CODZIENNY, TRAMWAJ, STARE, NOC)
+    val all: List<Preset> = listOf(CODZIENNY, TRAMWAJ, STARE, NOC, SKUPIENIE, WYCISZENIE)
 
     val default: Preset get() = CODZIENNY
 

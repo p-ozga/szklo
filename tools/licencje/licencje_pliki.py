@@ -8,6 +8,7 @@ WSPOLNE = """Szkło zawiera elementy, które NIE są naszą własnością. Nale�
 • Czcionka Inter – Rasmus Andersson i współtwórcy, licencja SIL Open Font License 1.1.
 • Czcionka Space Grotesk – Florian Karsten i współtwórcy, licencja SIL Open Font License 1.1.
 • Filtr „Binauralny”: pomiary HRTF manekina KEMAR – Bill Gardner i Keith Martin, MIT Media Lab, © 1994 MIT Media Laboratory; udostępnione bez ograniczeń użycia z prośbą o podanie autorów (sound.media.mit.edu/resources/KEMAR.html). KEMAR to znak swojego właściciela.
+• Wizualizacja muzyki: silnik Butterchurn – Jordan Berg i współtwórcy, licencja MIT (github.com/jberg/butterchurn); to otwarta implementacja formatu presetów MilkDrop. Presety w Szkle są własne. MilkDrop to wizualizacja Ryana Geissa (Nullsoft) – Szkło nie jest z nią powiązane.
 • Biblioteki open source (pełna lista niżej) – każda należy do swoich autorów; licencje MIT, Apache-2.0, BSD, MPL-2.0, ISC i podobne. Teksty licencji są w repozytoriach podanych przy każdej pozycji.
 """
 

@@ -5,7 +5,7 @@
 //!
 //! W każdym paśmie dwie ciągłe obwiednie mocy – szybka i wolna; ich stosunek r mówi, czy dźwięk właśnie się zaczyna (r > 0),
 //! czy wybrzmiewa (r < 0). To klasyczna metoda różnicy obwiedni (znana z kształtowników transjentów od lat 90.):
-//!   r > 1,5 dB → w górę 1,2·(r − 1,5), najwyżej 8 dB;   r < −2 dB → w dół 0,3·(−2 − r), najwyżej 3 dB.
+//!   r > 1,5 dB → w górę 1,6·(r − 1,5), najwyżej 10 dB;   r < −2 dB → w dół 0,4·(−2 − r), najwyżej 4 dB.
 //! Uderzenia są ostrzejsze, a tło między nimi ciszej – instrumenty wyraźniej się od siebie oddzielają.
 //!
 //! Osłony: wolne wyrównanie średniego poziomu każdego pasma (to nie korektor – barwa zostaje), bramka ciszy, a w pasmach
@@ -31,8 +31,8 @@ const T_SA: [f64; N] = [0.130, 0.110, 0.090, 0.080, 0.070, 0.060, 0.060];
 const T_SR: [f64; N] = [0.180, 0.160, 0.140, 0.120, 0.100, 0.090, 0.090];
 const T_GU: [f64; N] = [0.004, 0.003, 0.002, 0.0012, 0.0008, 0.0006, 0.0006];
 const T_GD: [f64; N] = [0.060, 0.050, 0.040, 0.035, 0.030, 0.025, 0.025];
-const KAPPA: f64 = 1.2;
-const UP_MAX: f64 = 8.0;
+const KAPPA: f64 = 1.6;
+const UP_MAX: f64 = 10.0;
 
 #[derive(Clone, Copy, Default)]
 struct Band {
@@ -118,7 +118,7 @@ impl Module for Crystal {
                 let mut g = if ratio > 1.5 {
                     (KAPPA * (ratio - 1.5)).min(UP_MAX)
                 } else if ratio < -2.0 {
-                    -(0.3 * (-2.0 - ratio)).min(3.0)
+                    -(0.4 * (-2.0 - ratio)).min(4.0)
                 } else {
                     0.0
                 } * W[i];
@@ -134,9 +134,9 @@ impl Module for Crystal {
                 b.p_in = p + self.a_long * (b.p_in - p);
                 let po = p * ge * ge;
                 b.p_out = po + self.a_long * (b.p_out - po);
-                let mk = if a > 0.0 { (db(b.p_in) - db(b.p_out)).clamp(-4.0, 4.0) } else { 0.0 };
+                // wyrównanie zanika razem z suwakiem (bez tego przy wyłączaniu zostawał skok wzmocnienia pasma)
+                let mk = (db(b.p_in) - db(b.p_out)).clamp(-7.0, 4.0) * (a / 0.1).min(1.0);
                 let d = if a > 0.0 { und(a * b.g_db + mk) - 1.0 } else { 0.0 };
-                meter = meter.max(a * b.g_db);
                 if d != 0.0 || b.d != 0.0 {
                     let st = (d - b.d) * inv;
                     let mut gg = b.d;
@@ -158,10 +158,8 @@ impl Module for Crystal {
             b.f[0].flush_denormals();
             b.f[1].flush_denormals();
         }
-        self.meter = meter as f32;
-    }
-    fn gain_reduction_db(&self, _id: ModuleId) -> f32 {
-        self.meter
+        // Kryształ podbija, nie redukuje – nie zgłasza nic do miernika redukcji (wcześniej pokazywał „redukcję” do 10 dB)
+        let _ = meter;
     }
 }
 
@@ -212,7 +210,7 @@ mod tests {
         assert!(k1 > k0 + 3.0, "kontrast {k0} → {k1}");
         let d = rms(&y[n / 2..]) - rms(&x[n / 2..]);
         // syntetyczne uderzenia we wszystkich pasmach naraz (najgorszy przypadek); na muzyce 0 ± 0,1 dB
-        assert!(d.abs() < 2.0, "poziom {d}");
+        assert!(d.abs() < 2.5, "poziom {d}");
     }
 
     #[test]

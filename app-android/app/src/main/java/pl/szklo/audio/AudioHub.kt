@@ -225,6 +225,14 @@ object AudioHub {
         }
     }
 
+    /** Fala dla wizualizacji z aktywnego silnika; true = w [out] jest nowy dźwięk. */
+    fun readScope(out: ByteArray): Boolean = activeEngine?.scope(true, out) ?: false
+
+    /** Wizualizacja zamknięta – rdzeń przestaje zapisywać podgląd. */
+    fun scopeOff() {
+        activeEngine?.scope(false, ByteArray(NativeEngine.SCOPE_BYTES))
+    }
+
     private val meterBuf = FloatArray(NativeEngine.METER_COUNT)
 
     /** Odczyt mierników aktywnego silnika (null, gdy nic nie gra przez rdzeń). */
@@ -294,8 +302,12 @@ object AudioHub {
     /** Odtwarzacz zgłosił sesję (OPEN_AUDIO_EFFECT_CONTROL_SESSION lub panel korektora). */
     fun addSession(sessionId: Int, packageName: String?) {
         if (sessionId <= 0) return // 0 = mikser globalny – przestarzałe, nie podpinamy
+        // odbiornik zgłoszeń jest publiczny: lista nie może rosnąć bez końca
+        if (sessionId !in _global.value.sessions && _global.value.sessions.size >= MAX_SESSIONS) return
         _global.update { it.copy(sessions = it.sessions + (sessionId to packageName)) }
     }
+
+    private const val MAX_SESSIONS = 32
 
     fun removeSession(sessionId: Int) {
         _global.update { it.copy(sessions = it.sessions - sessionId, attached = it.attached - sessionId) }

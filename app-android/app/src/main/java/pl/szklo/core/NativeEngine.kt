@@ -67,6 +67,14 @@ class NativeEngine private constructor(
     }
 
     /**
+     * Fala wyjścia dla wizualizacji: [on] włącza podgląd w rdzeniu (false – wyłącza), [out] (min. [SCOPE_BYTES]) dostaje
+     * 1024 próbki lewego i 1024 prawego kanału (8 bitów, środek 128). Zwraca true tylko wtedy, gdy przyszedł nowy dźwięk.
+     */
+    fun scope(on: Boolean, out: ByteArray): Boolean = lock.read {
+        handle != 0L && out.size >= SCOPE_BYTES && nativeScope(handle, on, out)
+    }
+
+    /**
      * Odczyt mierników do [out] (min. [METER_COUNT] elementów):
      * [METER_IN_DB], [METER_OUT_DB], [METER_GR_DB], [METER_LUFS_3S], [METER_TRUE_PEAK_DB].
      * Zwraca false, gdy silnik jest już zamknięty.
@@ -150,6 +158,8 @@ class NativeEngine private constructor(
         @JvmStatic external fun nativeApplyPreset(h: Long, key: String): Boolean
         @JvmStatic external fun nativeProcess(h: Long, buf: FloatArray, frames: Int, channels: Int)
         @JvmStatic external fun nativeMeters(h: Long, out: FloatArray)
+        @JvmStatic external fun nativeScope(h: Long, on: Boolean, out: ByteArray): Boolean
+        const val SCOPE_BYTES = 2048
         @JvmStatic external fun nativeLatency(h: Long): Int
         @JvmStatic external fun nativeInitAndroid(context: android.content.Context)
         @JvmStatic external fun nativeSpotifyStart(h: Long, cacheDir: String, name: String)

@@ -14,7 +14,7 @@ import pl.szklo.model.ModuleId
  * liczby to punkty startowe do strojenia odsłuchem, nie wynik pomiarów.
  *
  * Przestrzeń, Szerokość, Kaptur i Binauralny: DynamicsProcessing nie ma M/S ani splotu – zastępczo systemowy `Virtualizer` ([Targets.virtualizer]).
- * Moduły bez odpowiednika (brak wpływu w tym trybie): Declipper, Dekwantyzer, Rotacja fazy.
+ * Moduły bez odpowiednika (brak wpływu w tym trybie): Declipper, Dekwantyzer, Rotacja fazy, Mniej słów, Szum tła.
  *
  * Czysta funkcja (bez API Androida) – testowalna na JVM.
  */
@@ -25,6 +25,13 @@ object DpMapping {
 
     /** Górne krawędzie pasm kompresora wielopasmowego (Hz). */
     val MBC_CUTOFFS = floatArrayOf(150f, 1000f, 5000f, 20000f)
+
+    /** Poziom odniesienia kompensacji kompresora i jej górna granica (dB). */
+    const val MAKEUP_REF_DB = -12f
+    const val MAKEUP_MAX_DB = 6f
+
+    /** Największe podbicie jednego pasma korektora (dB) – suma filtrów basu nie może wejść wyżej. */
+    const val PRE_EQ_MAX_DB = 9f
 
     /** Górne krawędzie pasm postEQ (Hz). */
     val POST_EQ_CUTOFFS = floatArrayOf(100f, 1000f, 8000f, 20000f)
@@ -120,13 +127,15 @@ object DpMapping {
         pre[6] -= 0.5f * a(ModuleId.SPECTRUM_BALANCE)
         // Dehummer: zastępczo ujęcie najniższego pasma (filtr grzebieniowy 50/60 Hz niedostępny).
         pre[0] -= 3f * a(ModuleId.DEHUMMER)
-        for (i in pre.indices) pre[i] = pre[i].coerceIn(-12f, 12f)
+        for (i in pre.indices) pre[i] = pre[i].coerceIn(-12f, PRE_EQ_MAX_DB)
 
         // ---------------- MBC: Dynamika (+ bramka/ekspander od Naprawy)
         val agc = a(ModuleId.AGC)
         val mb1 = a(ModuleId.MULTIBAND1)
         val mb2 = a(ModuleId.MULTIBAND2)
-        val comp = a(ModuleId.COMPRESSOR)
+        // Równy strumień: w tym trybie zastępczo mocniejsza kompresja (wygładzania wahań w pasmach tu nie ma).
+        // Mniej słów i Szum tła nie mają odpowiednika: efekty systemowe nie odejmują kanałów i nie dodają dźwięku.
+        val comp = maxOf(a(ModuleId.COMPRESSOR), 0.8f * a(ModuleId.EVEN_STREAM))
         // Kryształ: jak Punch – wolniejszy atak przepuszcza uderzenia (wyostrzania w pasmach tu nie ma)
         val punch = maxOf(a(ModuleId.PUNCH), 0.7f * a(ModuleId.CRYSTAL))
         val gate = a(ModuleId.NOISE_GATE)
@@ -138,9 +147,12 @@ object DpMapping {
         val attack = 3f + 40f * punch
         // AGC: wolniejsze zwolnienie = wyrównanie poziomu zamiast „pompowania”.
         val release = 80f + 600f * agc
-        // Częściowa kompensacja wzmocnienia (połowa redukcji przy progu).
-        // Kompensacja wzmocnienia ~80 % redukcji przy progu – głośniej i gęściej (jak rdzeń z AGC i clipperem).
-        val makeup = if (ratio > 1.001f) ((-threshold) * (1f - 1f / ratio) * 0.8f).coerceIn(0f, 12f) else 0f
+        // Kompensacja: 60 % redukcji, jaką dostaje typowa głośna muzyka (obwiednia pasma ok. −12 dBFS), najwyżej 6 dB.
+        // Do 0.5.0 liczona od pełnej skali (do +12 dB): przy mocnych filtrach Multiband muzyka wychodziła o 6–8 dB za głośno,
+        // limiter zgniatał ją bez przerwy, a bez limitera dźwięk się obcinał („mocno przesterowany”, uwaga z 2026-11-25).
+        val makeup = if (ratio > 1.001f) {
+            (0.6f * (MAKEUP_REF_DB - threshold).coerceAtLeast(0f) * (1f - 1f / ratio)).coerceIn(0f, MAKEUP_MAX_DB)
+        } else 0f
         val radio = a(ModuleId.RADIO_BASS)
         val mbc = MBC_CUTOFFS.indices.map { band ->
             val isHigh = band == MBC_CUTOFFS.lastIndex
@@ -160,7 +172,7 @@ object DpMapping {
                 noiseGateDb = gateDb,
                 expanderRatio = expRatio,
                 preGainDb = 0f,
-                postGainDb = (makeup + 3f * dense).coerceAtMost(12f),
+                postGainDb = (makeup + 1.5f * dense).coerceAtMost(MAKEUP_MAX_DB),
             )
         }
 
@@ -173,15 +185,18 @@ object DpMapping {
         val clipSimple = a(ModuleId.SIMPLE_CLIPPER)
         val preLim = a(ModuleId.PRE_LIMITER)
         // Clippery podnoszą głośność przez dociśnięcie limitera (zamiast kasowania zniekształceń jak w rdzeniu).
-        val drive = (3f * clipHd + 1.5f * clipSimple + 1f * preLim).coerceIn(0f, 6f)
+        val drive = (2f * clipHd + 1f * clipSimple + 0.5f * preLim).coerceIn(0f, 3f)
         val hard = p[ModuleId.HARD_LIMIT].on
+        // Limiter także wtedy, gdy Hard Limit jest wyłączony, a ustawienia mogą podnieść poziom ponad wejście –
+        // efekty systemowe nie mają innej ochrony przed obcięciem.
+        val canBoost = drive + (pre.maxOrNull() ?: 0f).coerceAtLeast(0f) + mbc.maxOf { it.postGainDb } + post.max() > 0.5f
         val limiter = Limiter(
-            enabled = hard,
+            enabled = hard || canBoost,
             attackMs = 1f,
             releaseMs = 50f + 100f * preLim,
-            ratio = 10f,
-            // Limiter DP działa na próbkach (nie true-peak) – zapas 0,3 dB poniżej sufitu.
-            thresholdDb = (p.ceilingDb - 0.3f).coerceIn(-12f, 0f),
+            ratio = 50f,
+            // Limiter DP działa na próbkach (nie true-peak) i ma atak 1 ms – zapas 1,5 dB poniżej sufitu, ratio 50.
+            thresholdDb = (p.ceilingDb - 1.5f).coerceIn(-12f, 0f),
             postGainDb = 0f,
         )
 

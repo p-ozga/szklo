@@ -40,6 +40,10 @@ const INDEX: &str = include_str!("../ui/index.html");
 const FONT_INTER: &[u8] = include_bytes!("../ui/fonts/Inter.ttf");
 const FONT_SG: &[u8] = include_bytes!("../ui/fonts/SpaceGrotesk.ttf");
 const LICENCJE: &str = include_str!("../ui/licencje.txt");
+// wizualizacja wbudowana (wspólna z Androidem): silnik Butterchurn (Jordan Berg, MIT) + nasze presety i klej
+const WIZ_SILNIK: &str = include_str!("../../wspolne/wizualizacja/butterchurn.min.js");
+const WIZ_PRESETY: &str = include_str!("../../wspolne/wizualizacja/presety.js");
+const WIZ_KOD: &str = include_str!("../../wspolne/wizualizacja/wiz.js");
 const OFL_INTER: &str = include_str!("../ui/fonts/OFL-Inter.txt");
 const OFL_SG: &str = include_str!("../ui/fonts/OFL-SpaceGrotesk.txt");
 
@@ -65,6 +69,8 @@ struct Wspolne {
     odtw: odtwarzacz::Odtwarzacz,
     /// Karta odtwarzacza powiększona (UI wysyła wtedy widmo ~30 razy na sekundę).
     odtw_duzy: std::sync::atomic::AtomicBool,
+    /// Wbudowana wizualizacja włączona (UI dostaje wtedy falę dźwięku ~30 razy na sekundę).
+    wiz: std::sync::atomic::AtomicBool,
     /// HWND okna i skala DPI (dla osadzenia MilkDrop w obszarze karty).
     okno_hwnd: std::sync::atomic::AtomicIsize,
     okno_skala: Mutex<f64>,
@@ -149,10 +155,15 @@ fn odtw_dodaj(w: &Arc<Wspolne>, folder: bool) {
 
 fn presets_json(w: &Wspolne) -> Value {
     // kolejność chipów: Codzienny, Noc, Stare nagrania, Głośno w tramwaju, potem presety użytkownika
+    // (lista z rdzenia: preset dodany w rdzeniu pojawia się sam – do 0.5.0 była tu sztywna czwórka i nowe presety
+    // znikały z okna po pierwszym odświeżeniu)
     let order = ["codzienny", "noc", "stare", "tramwaj"];
+    let reszta = PRESETS.iter().map(|p| p.key).filter(|k| !order.contains(k));
     let mut v: Vec<Value> = order
         .iter()
-        .filter_map(|k| szklo_core::presets::by_key(k))
+        .copied()
+        .chain(reszta)
+        .filter_map(szklo_core::presets::by_key)
         .map(|p| {
             json!({ "key": p.key, "name": p.name_pl,
                     "mods": p.modules.iter().map(|m| json!([m.0, m.1])).collect::<Vec<_>>() })
@@ -432,6 +443,7 @@ fn obsluz(w: &Arc<Wspolne>, body: &str) {
             let _ = std::fs::remove_file(settings::dir().join("milkdrop.txt"));
         }
         "p_widok" => w.odtw_duzy.store(m["duzy"].as_bool().unwrap_or(false), Ordering::Relaxed),
+        "wiz" => w.wiz.store(m["b"].as_bool().unwrap_or(false), Ordering::Relaxed),
         "side" => w.na_tyle.store(m["back"].as_bool().unwrap_or(false), Ordering::Relaxed),
         "drag" => {
             let _ = w.proxy.send_event(Zd::Okno("drag"));
@@ -463,6 +475,9 @@ fn protokol(req: Request<Vec<u8>>) -> Response<Cow<'static, [u8]>> {
         "/fonts/SpaceGrotesk.ttf" => (Cow::Borrowed(FONT_SG), "font/ttf"),
         // cudze elementy i ich licencje (karta „O programie i licencje”)
         "/licencje.txt" => (Cow::Borrowed(LICENCJE.as_bytes()), "text/plain; charset=utf-8"),
+        "/wiz/butterchurn.min.js" => (Cow::Borrowed(WIZ_SILNIK.as_bytes()), "text/javascript; charset=utf-8"),
+        "/wiz/presety.js" => (Cow::Borrowed(WIZ_PRESETY.as_bytes()), "text/javascript; charset=utf-8"),
+        "/wiz/wiz.js" => (Cow::Borrowed(WIZ_KOD.as_bytes()), "text/javascript; charset=utf-8"),
         "/dziennik.txt" => (Cow::Owned(dziennik::ogon().into_bytes()), "text/plain; charset=utf-8"),
         "/fonts/OFL-Inter.txt" => (Cow::Borrowed(OFL_INTER.as_bytes()), "text/plain; charset=utf-8"),
         "/fonts/OFL-SpaceGrotesk.txt" => (Cow::Borrowed(OFL_SG.as_bytes()), "text/plain; charset=utf-8"),
@@ -624,6 +639,7 @@ fn main() {
         presety: Mutex::new(presety::wczytaj()),
         odtw: odtwarzacz::uruchom(),
         odtw_duzy: Default::default(),
+        wiz: Default::default(),
         okno_hwnd: Default::default(),
         okno_skala: Mutex::new(1.0),
     });
@@ -1022,6 +1038,12 @@ fn main() {
                         if sk != ost_widmo {
                             let _ = webview.evaluate_script(&sk);
                             ost_widmo = sk;
+                        }
+                        // wbudowana wizualizacja: świeża fala (gdy nic nie gra, nie wysyłamy – obraz sam się uspokaja)
+                        if w.wiz.load(Ordering::Relaxed) {
+                            if let Some(b) = odtwarzacz::fala_b64() {
+                                let _ = webview.evaluate_script(&format!("window.szklo&&szklo.wizFala('{b}')"));
+                            }
                         }
                     }
                 }

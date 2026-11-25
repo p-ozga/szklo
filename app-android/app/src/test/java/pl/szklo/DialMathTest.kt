@@ -65,9 +65,9 @@ class DialMathTest {
 
     @Test
     fun presetsMatchRustCatalog() {
-        assertEquals(29, ModuleId.entries.size)
+        assertEquals(32, ModuleId.entries.size)
         assertEquals("hard_limit", ModuleId.entries[22].key)
-        assertEquals(listOf("codzienny", "tramwaj", "stare", "noc"), Presets.all.map { it.key })
+        assertEquals(listOf("codzienny", "tramwaj", "stare", "noc", "skupienie", "wyciszenie"), Presets.all.map { it.key })
         // Porównanie z core/src/presets.rs (źródło prawdy) – wszystkie presety i moduły.
         val rs = java.io.File("../../core/src/presets.rs").takeIf { it.exists() }
             ?: java.io.File("../core/src/presets.rs")
@@ -75,7 +75,7 @@ class DialMathTest {
         val blok = Regex("""key: "(\w+)",\s*name_pl: "[^"]+",\s*modules: build\(&\[(.*?)\]\)""", RegexOption.DOT_MATCHES_ALL)
         val wpis = Regex("""\(M::(\w+), (true|false), (\d+)\)""")
         val znalezione = blok.findAll(text).toList()
-        assertEquals(4, znalezione.size)
+        assertEquals(6, znalezione.size)
         for (b in znalezione) {
             val preset = Presets.byKey(b.groupValues[1]) ?: error("brak presetu ${b.groupValues[1]} w Kotlinie")
             for (w in wpis.findAll(b.groupValues[2])) {
@@ -100,5 +100,28 @@ class DialMathTest {
         assertTrue(t.mbc.all { it.ratio == 1f && it.postGainDb == 0f })
         assertEquals(false, t.limiter.enabled)
         assertEquals(0f, t.inputGainDb, eps)
+    }
+
+    /** Żadne ustawienie nie może dać dużego wzmocnienia bez limitera (regresja: „Multiband = przester”). */
+    @Test
+    fun dpMappingNeverBoostsUnprotected() {
+        val wszystko = EngineParams(modules = List(ModuleId.COUNT) { pl.szklo.model.ModuleState(true, 1f) }, master = 1f)
+        val bezLimitera = wszystko.withModule(ModuleId.HARD_LIMIT.index) { it.copy(on = false) }
+        for (p in listOf(wszystko, bezLimitera) + pl.szklo.model.Presets.all.map { EngineParams.fromPreset(it) }) {
+            val t = DpMapping.compute(p)
+            assertTrue(t.mbc.all { it.postGainDb <= DpMapping.MAKEUP_MAX_DB })
+            assertTrue(t.preEq.all { it <= DpMapping.PRE_EQ_MAX_DB })
+            assertTrue(t.inputGainDb <= 3f)
+            val moze = t.inputGainDb + t.preEq.max().coerceAtLeast(0f) + t.mbc.maxOf { it.postGainDb } + t.postEq.max() > 0.5f
+            if (moze) assertTrue("limiter musi chronić", t.limiter.enabled)
+        }
+        // same filtry Multiband na 100%: najwyżej +6 dB (było +12), z limiterem
+        val mb = EngineParams(
+            modules = List(ModuleId.COUNT) { pl.szklo.model.ModuleState(it == ModuleId.MULTIBAND1.index || it == ModuleId.MULTIBAND2.index, 1f) },
+            master = 1f,
+        )
+        val t = DpMapping.compute(mb)
+        assertTrue(t.mbc.all { it.postGainDb <= 6f })
+        assertTrue(t.limiter.enabled)
     }
 }

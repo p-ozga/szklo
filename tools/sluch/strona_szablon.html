@@ -1,0 +1,146 @@
+<title>Słyszalność filtrów Szkła</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600&display=swap">
+<style>
+/* Układ: jedna kolumna raportu pomiarowego; tabele-mapy ciepła jako główna treść, skala JND zawsze pod ręką. */
+:root {
+  --bg: #f3f7f8; --panel: #ffffff; --fg: #10262b; --muted: #55707a; --line: #d5e0e3; --accent: #0f8a98;
+  --h0: #e9eff1; --h1: #cfe9ec; --h2: #9bd8de; --h3: #4fc3cf; --h4: #1a9aa9; --h5: #0c5f6b; --hot-fg: #ffffff;
+  --warn: #b25a00; --bad: #b3261e; --ok: #1b7f4a;
+  --display: 'Space Grotesk', 'Segoe UI', system-ui, sans-serif; --body: 'Inter', 'Segoe UI', system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0b1518; --panel: #122227; --fg: #e4f1f3; --muted: #8fa9b0; --line: #24393f; --accent: #25e2f7;
+  --h0: #16272c; --h1: #153a41; --h2: #165560; --h3: #17798a; --h4: #1fb8c9; --h5: #8eeaf5; --hot-fg: #05181c;
+  --warn: #ffb35c; --bad: #ff8a80; --ok: #6fdc9e; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #0b1518; --panel: #122227; --fg: #e4f1f3; --muted: #8fa9b0; --line: #24393f; --accent: #25e2f7;
+  --h0: #16272c; --h1: #153a41; --h2: #165560; --h3: #17798a; --h4: #1fb8c9; --h5: #8eeaf5; --hot-fg: #05181c;
+  --warn: #ffb35c; --bad: #ff8a80; --ok: #6fdc9e; color-scheme: dark }
+body { background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 15px; line-height: 1.55; }
+.wrap { max-width: 1080px; margin: 0 auto; padding-block: 28px 56px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: flex; flex-direction: column; gap: 28px; }
+h1, h2 { font-family: var(--display); font-weight: 600; text-wrap: balance; margin: 0; }
+h1 { font-size: 30px; line-height: 1.15; }
+h2 { font-size: 20px; }
+p { margin: 0; max-width: 68ch; }
+.lead { color: var(--muted); }
+section { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.note { color: var(--muted); font-size: 13.5px; }
+.skala { display: flex; flex-wrap: wrap; gap: 6px; font-size: 13px; }
+.skala span { padding: 4px 10px; border-radius: 6px; }
+.tabela { overflow-x: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; }
+table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; font-size: 13.5px; }
+th, td { padding: 6px 10px; text-align: right; white-space: nowrap; border-bottom: 1px solid var(--line); }
+th { font-weight: 500; color: var(--muted); font-size: 12px; letter-spacing: .02em; position: sticky; top: 0; background: var(--panel); }
+td:first-child, th:first-child { text-align: left; }
+tr:last-child td { border-bottom: 0; }
+td.t { text-align: left; color: var(--muted); }
+td.c { text-align: center; padding: 0; }
+td.c span { display: block; padding: 6px 8px; min-width: 38px; }
+.j0 { background: var(--h0); color: var(--muted); } .j1 { background: var(--h1); } .j2 { background: var(--h2); }
+.j3 { background: var(--h3); } .j4 { background: var(--h4); color: var(--hot-fg); } .j5 { background: var(--h5); color: var(--bg); }
+.grupa td { background: var(--bg); font-family: var(--display); font-weight: 600; font-size: 13px; }
+.ok { color: var(--ok); } .warn { color: var(--warn); } .bad { color: var(--bad); }
+.filtry { display: flex; flex-wrap: wrap; gap: 8px; }
+.filtry button { font: inherit; font-size: 13px; padding: 5px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel); color: var(--fg); cursor: pointer; }
+.filtry button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--bg); }
+.filtry button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.kotwice { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+.kotwice div { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+.kotwice b { font-family: var(--display); font-size: 22px; display: block; }
+a { color: var(--accent); }
+</style>
+<div class="wrap">
+  <header style="display:flex;flex-direction:column;gap:10px">
+    <h1>Słyszalność filtrów Szkła</h1>
+    <p class="lead">Każdy filtr puszczony na 30 fragmentach muzyki z 15 gatunków i oceniony modelem ludzkiego słuchu. Liczby mówią, ile progów słyszalności (JND) dzieli dźwięk po filtrze od oryginału. Wersja <span id="wer"></span>.</p>
+    <div class="skala" aria-label="Skala">
+      <span class="j0">&lt; 1 niesłyszalne</span><span class="j1">1–2 tylko w porównaniu A/B</span><span class="j2">2–4 słabe</span><span class="j3">4–6 wyraźne</span><span class="j4">6–8 mocne</span><span class="j5">&gt; 8 bardzo mocne</span>
+    </div>
+  </header>
+
+  <section>
+    <h2>Skala sprawdzona Twoimi uwagami</h2>
+    <div class="kotwice">
+      <div><b>2,7</b>Przestrzeń 0.3.1 przy 50%: „mało odczuwalna”</div>
+      <div><b>3,5</b>Ciepły bas v2 przy 100%: „działa, jakby nie mógł”</div>
+      <div><b>9,5</b>Ciepły bas v3 przy 100%: „działa… też fajnie”</div>
+    </div>
+    <p class="note">Stąd reguła: dobry filtr daje przy 100% co najmniej ok. 5 i zaczyna być słyszalny poniżej jednej czwartej suwaka.</p>
+  </section>
+
+  <section>
+    <h2>Filtry przy pięciu położeniach suwaka</h2>
+    <div class="filtry" id="grupy" role="group" aria-label="Grupa filtrów"></div>
+    <div class="tabela"><table id="glowna"></table></div>
+    <p class="note">„Przed” to wynik przy 100% sprzed strojenia (0.4.0). Przester w dB względem sygnału, im niżej, tym czyściej: lekkie obcięcie szczytów to −38, wyraźne −21, mocne −13. Przy filtrach przestrzennych i Szumie tła ta liczba obejmuje celowo dodany dźwięk (odbicia, szum), więc jej nie oceniamy. Filtry, które z założenia szybko zmieniają głośność (Kryształ, Równy strumień, Punch), też mają ją wyższą: to zamierzona zmiana obwiedni, nie obcinanie. Filtry basu działają poniżej zakresu tej miary.</p>
+  </section>
+
+  <section>
+    <h2>Gatunki przy suwaku 100%</h2>
+    <div class="tabela"><table id="gat"></table></div>
+  </section>
+
+  <section>
+    <h2>Filtry naprawcze na nagraniach z usterką</h2>
+    <p class="note">Odległość od czystego oryginału przed i po naprawie (mniej znaczy lepiej), mediana z 15 utworów, oraz utwór, w którym pomogło najbardziej.</p>
+    <div class="tabela"><table id="napr"></table></div>
+  </section>
+
+  <section>
+    <h2>Presety</h2>
+    <div class="tabela"><table id="pres"></table></div>
+    <p class="note">Wahania 2–8 Hz i środek w paśmie mowy to miary rozpraszania: im bardziej ujemne, tym równiejszy dźwięk i mniej wyraźny wokal.</p>
+  </section>
+
+  <section>
+    <h2>Utwory</h2>
+    <p class="note">Pierwsze miejsca list gatunków w Jamendo, 25.11.2026. Licencje Creative Commons, pliki tylko do badania na tym komputerze.</p>
+    <div class="tabela"><table id="utw"></table></div>
+  </section>
+
+  <section>
+    <h2>Czego ten pomiar nie mówi</h2>
+    <p>To model, nie Twoje uszy. Nie uwzględnia maskowania w czasie, zakłada jeden poziom odsłuchu (ok. 74 dB) i wagi między wymiarami dobrane do progów z literatury. Służy do porównywania filtrów i wyłapywania martwych suwaków. Miara przesteru jest wiarygodna powyżej 600 Hz, a w basie filtry z podziałem pasma oceniamy osobno sygnałem z czystych tonów.</p>
+  </section>
+</div>
+<script>
+const D = /*DANE*/null;
+const kl = v => v == null ? 'j0' : v < 1 ? 'j0' : v < 2 ? 'j1' : v < 4 ? 'j2' : v < 6 ? 'j3' : v < 8 ? 'j4' : 'j5';
+const pl = (v, d = 1) => v == null ? '–' : v.toFixed(d).replace('.', ',').replace('-', '−');
+const el = (t, h) => { const e = document.createElement(t); if (h != null) e.innerHTML = h; return e; };
+document.getElementById('wer').textContent = D.wersja;
+const prog = (jnd, cel) => { const x = [0, ...D.poziomy], y = [0, ...jnd]; for (let i = 1; i < x.length; i++) if (y[i] >= cel) return Math.round(x[i - 1] + (x[i] - x[i - 1]) * (cel - y[i - 1]) / Math.max(y[i] - y[i - 1], 1e-9)); return null; };
+const przester = f => f.przestrzenny ? '<span class="note">nie dotyczy</span>' : f.przester.map(v => v == null ? '–' : v < -60 ? 'czysto' : `<span class="${v > -22 ? 'bad' : v > -30 ? 'warn' : 'ok'}">${pl(v, 0)}</span>`).join(' / ');
+let wybrana = 'Wszystkie';
+function glowna() {
+  const t = document.getElementById('glowna'); t.innerHTML = '';
+  const h = el('tr'); ['Filtr', ...D.poziomy.map(p => p + '%'), 'słychać od', 'głównie', 'przester 50% / 100%', 'przed'].forEach(x => h.appendChild(el('th', x))); t.appendChild(h);
+  let g = null;
+  for (const f of D.filtry) {
+    if (wybrana !== 'Wszystkie' && f.grupa !== wybrana) continue;
+    if (f.grupa !== g) { g = f.grupa; const r = el('tr'); r.className = 'grupa'; const c = el('td', g); c.colSpan = D.poziomy.length + 5; r.appendChild(c); t.appendChild(r); }
+    const r = el('tr'); r.appendChild(el('td', f.nazwa));
+    f.jnd.forEach(v => { const c = el('td', `<span class="${kl(v)}">${pl(v)}</span>`); c.className = 'c'; r.appendChild(c); });
+    const p1 = prog(f.jnd, 1); r.appendChild(el('td', p1 == null ? 'nigdy' : p1 + '%'));
+    const w = el('td', f.wym); w.className = 't'; r.appendChild(w);
+    r.appendChild(el('td', przester(f)));
+    const last = f.jnd[f.jnd.length - 1];
+    r.appendChild(el('td', f.przed == null || Math.abs(f.przed - last) < 0.25 ? '<span class="note">bez zmian</span>' : pl(f.przed)));
+    t.appendChild(r);
+  }
+}
+const gr = document.getElementById('grupy');
+['Wszystkie', ...new Set(D.filtry.map(f => f.grupa))].forEach(n => { const b = el('button', n); b.type = 'button'; b.id = 'g-' + n; b.setAttribute('aria-pressed', n === wybrana); b.onclick = () => { wybrana = n; gr.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', x === b)); glowna(); }; gr.appendChild(b); });
+glowna();
+{ const t = document.getElementById('gat'); const h = el('tr'); ['Filtr', ...D.gatunki].forEach(x => h.appendChild(el('th', x))); t.appendChild(h);
+  for (const f of D.filtry) { const r = el('tr'); r.appendChild(el('td', f.nazwa)); f.gat.forEach(v => { const c = el('td', `<span class="${kl(v)}">${pl(v)}</span>`); c.className = 'c'; r.appendChild(c); }); t.appendChild(r); } }
+{ const t = document.getElementById('napr'); const h = el('tr'); ['Filtr', 'usterka', 'suwak', 'przed', 'po', 'poprawa', 'najlepiej'].forEach(x => h.appendChild(el('th', x))); t.appendChild(h);
+  const nazwy = { przester: 'przester', mp3: 'słabe MP3', szum: 'szum', brum: 'brum 50 Hz', kwant: '8 bitów', szumpauza: 'szum w pauzie' };
+  for (const n of D.naprawa) { if (![50, 100].includes(n.poziom)) continue; const r = el('tr'); const d = n.przed - n.po;
+    [n.nazwa, nazwy[n.usterka] || n.usterka, n.poziom + '%', pl(n.przed), pl(n.po), `<span class="${d > 0.3 ? 'ok' : d < -0.3 ? 'bad' : 'note'}">${d > 0 ? '+' : ''}${pl(d)}</span>`, `${n.najlepiej[0]}: ${pl(n.najlepiej[1])} → ${pl(n.najlepiej[2])}`].forEach((x, i) => { const c = el('td', x); if (i === 1 || i === 6) c.className = 't'; r.appendChild(c); }); t.appendChild(r); } }
+{ const t = document.getElementById('pres'); const h = el('tr'); ['Preset', 'razem', 'głośność', 'barwa', 'dynamika', 'przestrzeń', 'zmiana głośności, LU', 'wahania 2–8 Hz, dB', 'środek w paśmie mowy, dB'].forEach(x => h.appendChild(el('th', x))); t.appendChild(h);
+  for (const p of D.presety) { const r = el('tr'); r.appendChild(el('td', p.nazwa)); ['razem', 'glosnosc', 'barwa', 'dynamika', 'przestrzen'].forEach(k => { const c = el('td', `<span class="${kl(p[k])}">${pl(p[k])}</span>`); c.className = 'c'; r.appendChild(c); }); ['d_lufs', 'd_fluktuacja', 'd_srodek'].forEach(k => r.appendChild(el('td', pl(p[k])))); t.appendChild(r); } }
+{ const t = document.getElementById('utw'); const h = el('tr'); ['Gatunek', 'Utwór', 'Wykonawca', 'Licencja'].forEach(x => h.appendChild(el('th', x))); t.appendChild(h);
+  for (const u of D.utwory) { const r = el('tr'); [u.gatunek, `<a href="${u.strona}">${u.tytul}</a>`, u.artysta, u.licencja].forEach((x, i) => { const c = el('td', x); if (i) c.className = 't'; r.appendChild(c); }); t.appendChild(r); } }
+</script>

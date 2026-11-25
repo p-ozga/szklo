@@ -87,9 +87,9 @@ def main():
         for nm, H in (("M", a + b), ("S", a - b)):
             G = H * eq
             if az == FRONT and nm == "S":
-                # różnica kanałów najwyżej ok. +3 dB (bez tego bardzo szerokie nagrania robią się przeciwfazowe w 400–800 Hz)
+                # różnica kanałów najwyżej ok. +5 dB (bez tego bardzo szerokie nagrania robią się przeciwfazowe w 400–800 Hz)
                 ob = oktawa(f, np.abs(G) ** 2, 0.5) ** 0.5
-                G = G * minfaza(np.minimum(1, 1.41 / np.maximum(ob, 1e-3)))
+                G = G * minfaza(np.minimum(1, 1.8 / np.maximum(ob, 1e-3)))
             # powyżej 18 kHz wygaszenie odchyłek
             wyn[(az, nm)] = (1 - lpc) * G + lpc * (czyste if az == FRONT else 0)
     # poziom: pasmo 300–10000 Hz średnio 0 dB dla mono z przodu

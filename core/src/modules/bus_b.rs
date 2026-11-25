@@ -158,8 +158,9 @@ impl BusB {
         }
 
         // ── Balans widma ──
-        let s_b = lin(a_sb, 0.0, 0.67);
-        let d_b = 9.0 * a_sb;
+        // 2026-11-25: było 0,67 / 9 dB / próg 3 dB, teraz 1,0 / 12 dB / 1 dB – 0,7 JND przy 100% (niesłyszalne)
+        let s_b = lin(a_sb, 0.0, 1.0);
+        let d_b = 12.0 * a_sb;
         self.cum[0] = 0.0;
         for k in 0..nb {
             self.cum[k + 1] = self.cum[k] + self.pw[k];
@@ -173,7 +174,7 @@ impl BusB {
             let (c0, c1) = self.lo2[k];
             let mf = (self.cum[a1] - self.cum[a0]) / (a1 - a0) as f64;
             let mc = (self.cum[c1] - self.cum[c0]) / (c1 - c0) as f64;
-            let x = 10.0 * ((mf + 1e-30) / (mc + 1e-30)).log10() - 3.0;
+            let x = 10.0 * ((mf + 1e-30) / (mc + 1e-30)).log10() - 1.0;
             let wf = if f < 200.0 {
                 0.0
             } else if f < 400.0 {

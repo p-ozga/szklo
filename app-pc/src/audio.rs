@@ -147,7 +147,9 @@ pub fn start(input: &str, output: &str, params: Arc<SharedParams>, meters: Arc<S
                     primed = true;
                 }
                 if primed {
-                    let got = cons.pop_slice(&mut scratch) & !1;
+                    // zawsze parzysta liczba próbek: nieparzysta zamieniała kanały na stałe
+                    let ile = cons.occupied_len().min(scratch.len()) & !1;
+                    let got = cons.pop_slice(&mut scratch[..ile]);
                     if got < frames * 2 {
                         primed = false; // niedobór: cisza do ponownego napełnienia
                     }

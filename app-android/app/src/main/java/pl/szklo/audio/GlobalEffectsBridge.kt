@@ -59,7 +59,12 @@ class GlobalEffectsBridge {
         for ((id, dp) in effects) {
             if (!applyTo(dp, t)) broken += id else applyVirtualizer(id, t)
         }
-        broken.forEach { detach(it) }
+        // sesja, na której efekt przestał działać (odtwarzacz zamknięty bez zgłoszenia), wypada z listy –
+        // inaczej wisiałaby do końca i blokowała powrót do sesji ogólnej
+        broken.forEach {
+            detach(it)
+            if (it != GLOBAL_SESSION) AudioHub.removeSession(it)
+        }
     }
 
     @MainThread

@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>Wizualizacja Szkła</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+  canvas { display: block; width: 100%; height: 100%; }
+  #nazwa { position: fixed; left: 10px; bottom: 8px; font: 12px/1.3 system-ui, sans-serif; color: #EEF9FA; opacity: 0; transition: opacity .6s; text-shadow: 0 1px 3px #000; pointer-events: none; }
+  #blad { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; padding: 16px; text-align: center; font: 13px/1.5 system-ui, sans-serif; color: #EEF9FA; }
+  #blad[hidden] { display: none; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="nazwa"></div>
+<div id="blad" hidden></div>
+<script src="butterchurn.min.js"></script>
+<script src="presety.js"></script>
+<script src="wiz.js"></script>
+<script>
+/* Strona wizualizacji dla Androida (WebView) i do prób w przeglądarce (?test=1 – sztuczna muzyka, ?preset=N, ?fps=N).
+   Aplikacja woła: szkloFala(base64), szkloNastepny(), szkloPauza(true/false). Stuknięcie = następny preset. */
+(function () {
+  const q = new URLSearchParams(location.search);
+  const c = document.getElementById('c'), nazwa = document.getElementById('nazwa');
+  const skala = Math.min(window.devicePixelRatio || 1, parseFloat(q.get('skala') || '1.5'));
+  const wymiar = () => [Math.round(innerWidth * skala), Math.round(innerHeight * skala)];
+  [c.width, c.height] = wymiar();
+  let t0 = 0;
+  const pokaz = n => { nazwa.textContent = n; nazwa.style.opacity = 0.85; clearTimeout(t0); t0 = setTimeout(() => { nazwa.style.opacity = 0; }, 2500); };
+  const blad = SzkloWiz.start(c, { fps: parseInt(q.get('fps') || '30', 10), naNazwe: pokaz, preset: q.has('preset') ? parseInt(q.get('preset'), 10) : null });
+  if (blad) { const b = document.getElementById('blad'); b.textContent = 'Wizualizacja niedostępna: ' + blad; b.hidden = false; }
+  if (q.has('preset')) SzkloWiz.auto(false);
+  addEventListener('resize', () => SzkloWiz.rozmiar(...wymiar()));
+  c.addEventListener('click', () => SzkloWiz.nastepny());
+  window.szkloFala = b => SzkloWiz.fala(b);
+  window.szkloNastepny = () => SzkloWiz.nastepny();
+  window.szkloPauza = b => { if (b) SzkloWiz.stop(); else SzkloWiz.wznow(); };
+  document.addEventListener('visibilitychange', () => { if (document.hidden) SzkloWiz.stop(); else SzkloWiz.wznow(); });
+
+  if (q.has('test')) {
+    // sztuczna muzyka: stopa 2 razy na sekundę, bas, akord i szum talerzy – tylko do sprawdzania obrazu
+    const fs = 44100, L = new Uint8Array(1024), R = new Uint8Array(1024);
+    let n = 0;
+    setInterval(() => {
+      for (let i = 0; i < 1024; i++, n++) {
+        const t = n / fs, tb = t % 0.5;
+        const stopa = Math.exp(-tb * 14) * Math.sin(2 * Math.PI * (55 + 60 * Math.exp(-tb * 30)) * tb);
+        const bas = 0.25 * Math.sin(2 * Math.PI * 82.4 * t);
+        const akord = 0.12 * (Math.sin(2 * Math.PI * 330 * t) + Math.sin(2 * Math.PI * 415 * t + 1) + Math.sin(2 * Math.PI * 494 * t + 2));
+        const hat = ((t + 0.25) % 0.25 < 0.03) ? 0.25 * (Math.random() * 2 - 1) : 0;
+        const l = 0.6 * stopa + bas + akord + hat, r = 0.6 * stopa + bas + 0.12 * Math.sin(2 * Math.PI * 660 * t) + hat * 0.7;
+        L[i] = 128 + Math.max(-1, Math.min(1, l)) * 127; R[i] = 128 + Math.max(-1, Math.min(1, r)) * 127;
+      }
+      n += Math.round(fs / 30) - 1024;
+      SzkloWiz.falaTablice(L, R);
+    }, 33);
+  }
+})();
+</script>
+</body>
+</html>

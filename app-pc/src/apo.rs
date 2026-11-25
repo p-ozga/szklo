@@ -10,7 +10,7 @@
 //! czyta linię mierników (serwer wysyła je co ~33 ms), potem ewentualnie wysyła stan. Bez `unsafe`.
 
 use std::collections::HashMap;
-use std::io::{BufRead, BufReader, Write};
+use std::io::{BufRead, BufReader, Read, Write};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -95,7 +95,15 @@ fn client(name: String, peers: Peers, params: Arc<SharedParams>, link: Arc<ApoLi
     // (zarządca spróbuje ponownie, gdy usuniemy wpis).
     let mut pipe = None;
     for _ in 0..10 {
-        if let Ok(f) = std::fs::OpenOptions::new().read(true).write(true).open(&path) {
+        // SECURITY_IDENTIFICATION: serwer potoku (ktokolwiek nim jest) nie może działać w naszym imieniu
+        #[cfg(windows)]
+        let otwarty = {
+            use std::os::windows::fs::OpenOptionsExt;
+            std::fs::OpenOptions::new().read(true).write(true).security_qos_flags(0x0001_0000).open(&path)
+        };
+        #[cfg(not(windows))]
+        let otwarty = std::fs::OpenOptions::new().read(true).write(true).open(&path);
+        if let Ok(f) = otwarty {
             pipe = Some(f);
             break;
         }
@@ -117,8 +125,10 @@ fn client(name: String, peers: Peers, params: Arc<SharedParams>, link: Arc<ApoLi
                 sent_at = Instant::now();
             }
             line.clear();
-            match br.read_line(&mut line) {
+            // linia mierników ma kilkadziesiąt znaków; strumień bez końca linii nie może zapchać pamięci
+            match br.by_ref().take(4096).read_line(&mut line) {
                 Ok(0) | Err(_) => break,
+                Ok(_) if !line.ends_with('\n') => break,
                 Ok(_) => {
                     if let Some(m) = decode_meters(&line) {
                         if let Ok(mut p) = peers.lock() {

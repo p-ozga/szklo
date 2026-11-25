@@ -89,13 +89,18 @@ fn zarejestruj_wtyczke() -> Result<String, String> {
     std::fs::create_dir_all(&folder).map_err(|e| format!("{}: {e}", folder.display()))?;
     // Wtyczkę ładuje usługa dźwięku (LOCAL SERVICE) – musi ją czytać; zwykli użytkownicy NIE mogą jej podmienić
     // (kod w procesie usługi systemowej). System i administratorzy: pełne prawa.
-    let _ = std::process::Command::new("icacls")
-        .arg(&folder)
-        .args(["/inheritance:r", "/grant:r", "*S-1-5-18:(OI)(CI)F", "*S-1-5-32-544:(OI)(CI)F", "*S-1-5-19:(OI)(CI)RX", "*S-1-5-32-545:(OI)(CI)RX", "/T", "/Q"])
-        .status();
+    // Folder mógł już istnieć (utworzony wcześniej przez zwykłego użytkownika): przejmujemy własność i ustawiamy prawa
+    // od nowa; bez tego właściciel mógłby podmienić plik ładowany przez usługę systemową.
+    let icacls = |args: &[&str]| -> Result<(), String> {
+        let st = std::process::Command::new("icacls").arg(&folder).args(args).status().map_err(|e| format!("icacls: {e}"))?;
+        if st.success() { Ok(()) } else { Err(format!("nie udało się zabezpieczyć {} (icacls {args:?})", folder.display())) }
+    };
+    icacls(&["/setowner", "*S-1-5-32-544", "/T", "/Q"])?;
+    icacls(&["/inheritance:r", "/grant:r", "*S-1-5-18:(OI)(CI)F", "*S-1-5-32-544:(OI)(CI)F", "*S-1-5-19:(OI)(CI)RX", "*S-1-5-32-545:(OI)(CI)RX", "/T", "/Q"])?;
     // nazwa z sumą kontrolną: nowa wersja ma nowy plik (stary bywa zablokowany przez usługę dźwięku)
     let cel = folder.join(format!("szklo_vst2_{skrot}.dll"));
-    if !cel.exists() {
+    // istniejący plik o tej nazwie musi być bajt w bajt nasz (nazwa to tylko 4 bajty skrótu – nie dowód)
+    if std::fs::read(&cel).map(|b| b != bajty).unwrap_or(true) {
         std::fs::write(&cel, &bajty).map_err(|e| format!("{}: {e}", cel.display()))?;
     }
     let Some((_, konf)) = apo_sciezki() else {
@@ -239,6 +244,7 @@ pub fn pobierz_i_zainstaluj_apo(postep: &dyn Fn(String)) -> Result<(), String> {
     }
     let _k = Koniec;
     let klient = reqwest::blocking::Client::builder()
+        .https_only(true)
         .user_agent("Szklo-DSP")
         .connect_timeout(std::time::Duration::from_secs(20))
         .timeout(Some(std::time::Duration::from_secs(15 * 60)))

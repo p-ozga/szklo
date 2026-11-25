@@ -3,7 +3,7 @@
 //! S_h = HP Butterworth 150 Hz (S), S_l = S − S_h (dokładne dopełnienie).
 //! ρ = korelacja L/R (100 ms); straż = clamp(ρ/0,4, 0, 1)·clamp(E[M²]/E[S²], 0, 1)
 //! S′ = (1 + w_s·straż)·S_h + (1 − m_s)·S_l;  L′ = M + S′, R′ = M − S′ (M nietknięte → suma mono bez zmian).
-//! Suwak: w_s = 0,6·a, m_s = 0,5·a; a = 0 → S′ = S dokładnie.
+//! Suwak: w_s = 1,1·a (2026-11-25: było 0,6 – tylko 2,8 JND przy 100%), m_s = 0,5·a; a = 0 → S′ = S dokładnie.
 
 use super::control_chunks;
 use crate::catalog::ModuleId;
@@ -87,7 +87,7 @@ impl Module for Width {
             // straż wygładzana dodatkowo (τ 50 ms), a wzmocnienia S interpolowane liniowo w bloku –
             // bez tego skoki k co 16 próbek modulowały S (test dymny: nieciągłości 15 → 88 na 4 fragmentach)
             s.guard_s = s.a_guard * s.guard_s + (1.0 - s.a_guard) * guard;
-            let k_hi = 1.0 + 0.6 * a * s.guard_s;
+            let k_hi = 1.0 + 1.1 * a * s.guard_s;
             let k_lo = 1.0 - 0.5 * a;
             let (kh0, kl0) = (s.k_hi_prev, s.k_lo_prev);
             let inv = 1.0 / cl.len() as f64;

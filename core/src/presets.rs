@@ -28,7 +28,7 @@ const fn build(list: &[(ModuleId, bool, u8)]) -> [(bool, f32); MODULE_COUNT] {
     out
 }
 
-pub const PRESETS: [Preset; 4] = [
+pub const PRESETS: [Preset; 6] = [
     Preset {
         key: "codzienny",
         name_pl: "Codzienny",
@@ -142,6 +142,51 @@ pub const PRESETS: [Preset; 4] = [
             (M::ClipperHd, false, 0),
             (M::PreLimiter, true, 50),
             (M::SimpleClipper, true, 20),
+            (M::HardLimit, true, 0),
+        ]),
+    },
+    // Presety 2026-11-25 – z badań nad uwagą i dźwiękiem (opis i źródła: docs/skupienie.md). To nie jest leczenie.
+    Preset {
+        key: "skupienie",
+        name_pl: "Skupienie",
+        modules: build(&[
+            (M::Declipper, true, 40),
+            (M::Delossifier, true, 40),
+            (M::Dequantizer, true, 50),
+            (M::Agc, true, 60),
+            (M::Multiband2, true, 30),
+            (M::DeepBass, true, 25),
+            (M::HarmonicBass, true, 25),
+            (M::WarmBass, true, 45),
+            (M::RadioBass, true, 40),
+            (M::AutoEq, true, 40),
+            (M::SpectrumBalance, true, 30),
+            (M::Width, true, 15),
+            (M::Hood, true, 30),
+            (M::LessWords, true, 85),
+            (M::EvenStream, true, 60),
+            (M::Bed, true, 45),
+            (M::PreLimiter, true, 40),
+            (M::HardLimit, true, 0),
+        ]),
+    },
+    Preset {
+        key: "wyciszenie",
+        name_pl: "Wyciszenie",
+        modules: build(&[
+            (M::Declipper, true, 40),
+            (M::Delossifier, true, 40),
+            (M::Dequantizer, true, 50),
+            (M::Agc, true, 70),
+            (M::Multiband2, true, 40),
+            (M::Compressor, true, 40),
+            (M::WarmBass, true, 30),
+            (M::AutoEq, true, 40),
+            (M::SpectrumBalance, true, 50),
+            (M::Width, true, 10),
+            (M::Hood, true, 45),
+            (M::EvenStream, true, 80),
+            (M::PreLimiter, true, 50),
             (M::HardLimit, true, 0),
         ]),
     },

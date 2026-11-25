@@ -19,7 +19,7 @@ use windows::Win32::Security::Authorization::{ConvertStringSecurityDescriptorToS
 use windows::Win32::Security::{PSECURITY_DESCRIPTOR, SECURITY_ATTRIBUTES};
 use windows::Win32::Storage::FileSystem::{ReadFile, WriteFile, FILE_FLAG_FIRST_PIPE_INSTANCE, PIPE_ACCESS_DUPLEX};
 use windows::Win32::System::Pipes::{
-    ConnectNamedPipe, CreateNamedPipeW, DisconnectNamedPipe, PeekNamedPipe, PIPE_NOWAIT, PIPE_READMODE_BYTE, PIPE_TYPE_BYTE,
+    ConnectNamedPipe, CreateNamedPipeW, DisconnectNamedPipe, PeekNamedPipe, PIPE_NOWAIT, PIPE_READMODE_BYTE, PIPE_REJECT_REMOTE_CLIENTS, PIPE_TYPE_BYTE,
 };
 
 /// Czy działamy w usłudze audio Windows (a nie np. w edytorze konfiguracji Equalizer APO)?
@@ -75,7 +75,7 @@ fn create_pipe(path: &str) -> Option<Pipe> {
         let h = CreateNamedPipeW(
             PCWSTR(name.as_ptr()),
             PIPE_ACCESS_DUPLEX | FILE_FLAG_FIRST_PIPE_INSTANCE,
-            PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_NOWAIT,
+            PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_NOWAIT | PIPE_REJECT_REMOTE_CLIENTS,
             1,
             8192,
             8192,

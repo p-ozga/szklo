@@ -36,9 +36,13 @@ pub enum ModuleId {
     DynamicTreble,
     Binaural,
     Hood,
+    /// dodane 2026-11-25 (filtry skupienia)
+    LessWords,
+    EvenStream,
+    Bed,
 }
 
-pub const MODULE_COUNT: usize = 29;
+pub const MODULE_COUNT: usize = 32;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Group {
@@ -104,6 +108,9 @@ pub const MODULES: [ModuleInfo; MODULE_COUNT] = [
     ModuleInfo { id: ModuleId::DynamicTreble, name_pl: "Dynamiczna góra", key: "dynamic_treble", group: Group::Barwa },
     ModuleInfo { id: ModuleId::Binaural, name_pl: "Binauralny", key: "binaural", group: Group::Stereo },
     ModuleInfo { id: ModuleId::Hood, name_pl: "Kaptur", key: "hood", group: Group::Stereo },
+    ModuleInfo { id: ModuleId::LessWords, name_pl: "Mniej słów", key: "less_words", group: Group::Stereo },
+    ModuleInfo { id: ModuleId::EvenStream, name_pl: "Równy strumień", key: "even_stream", group: Group::Dynamika },
+    ModuleInfo { id: ModuleId::Bed, name_pl: "Szum tła", key: "bed", group: Group::Barwa },
 ];
 
 impl ModuleId {

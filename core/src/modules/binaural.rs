@@ -23,8 +23,8 @@ const TAPS: usize = 14;
 const T0_MS: f64 = 9.0;
 const T1_MS: f64 = 30.0;
 /// głośność tyłu przy a = 1: z różnicy kanałów i ze środka
-const G_SIDE: f64 = 0.65;
-const G_MID: f64 = 0.28;
+const G_SIDE: f64 = 0.95;
+const G_MID: f64 = 0.42;
 
 /// Splot FIR z historią (współczynniki odwrócone w czasie).
 struct Conv {
@@ -162,6 +162,9 @@ impl Module for Binaural {
     }
     fn process(&mut self, l: &mut [f64], r: &mut [f64]) {
         let n = l.len();
+        // tablice są dla 44,1 / 48 / 88,2 / 96 kHz; przy innej częstotliwości filtr ucha byłby rozciągnięty – wtedy
+        // moduł przepuszcza dźwięk bez zmian (samo opóźnienie)
+        let fs_ok = (self.ctx.fs / RATES[table(self.ctx.fs)] - 1.0).abs() < 0.02;
         for i in 0..n {
             let (m, s) = (0.5 * (l[i] + r[i]), 0.5 * (l[i] - r[i]));
             self.x[0][i] = m;
@@ -180,7 +183,7 @@ impl Module for Binaural {
         let mut off = 0;
         while off < n {
             let k = (n - off).min(CONTROL_BLOCK);
-            let a = self.a.advance(k);
+            let a = if fs_ok { self.a.advance(k) } else { 0.0 };
             let st = (a - self.prev_a) / k as f64;
             let mut g = self.prev_a;
             for i in off..off + k {

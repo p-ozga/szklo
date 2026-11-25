@@ -4,8 +4,8 @@
 //! przezroczysta, a A można zmieniać szybko bez przeliczania filtrów. Jedno A dla obu kanałów (obraz stereo stoi).
 //!
 //! Ile podbić, mówi poziom góry WZGLĘDEM ŚRODKA tego samego nagrania (300–3000 Hz):
-//!   chwilowo:  G = 0,7·(−1 dB − góra/środek), 0…12 dB – ciche wybrzmienia talerzy i oddech w górę, mocne „s” i werbel nie;
-//!   średnio:   G ≤ −2 dB − (średnia góra/środek) – jasne nagrania nie robią się kłujące.
+//!   chwilowo:  G = 0,8·(+1 dB − góra/środek), 0…15 dB – ciche wybrzmienia talerzy i oddech w górę, mocne „s” i werbel nie;
+//!   średnio:   G ≤ +0,5 dB − (średnia góra/środek) – jasne nagrania nie robią się kłujące.
 //! Nie ma tu pomiaru zapasu do pełnej skali ani przewidywania poziomu wyjścia – o przesterowanie dba limiter na końcu toru.
 //! To kompresja w górę z torem bocznym, znana z dynamicznych korektorów i układów redukcji szumu od lat 60.–80.
 //! Ochrona: szum tła (góra poniżej ok. −78 dBFS) zostaje bez zmian, pauzy zamrażają średnie.
@@ -19,9 +19,9 @@ use std::f64::consts::FRAC_1_SQRT_2;
 
 const F0: f64 = 6500.0;
 const Q0: f64 = 0.62;
-const G_MAX: f64 = 12.0;
-const GOAL_FAST: f64 = -1.0;
-const GOAL_SLOW: f64 = -2.0;
+const G_MAX: f64 = 15.0;
+const GOAL_FAST: f64 = 1.0;
+const GOAL_SLOW: f64 = 0.5;
 
 pub struct DynamicTreble {
     ctx: Ctx,
@@ -129,7 +129,7 @@ impl Module for DynamicTreble {
             let l_ref = db(self.p_ref);
             let l_fast = db(self.hf_fast);
             let room = (GOAL_SLOW - (db(self.hf_slow) - l_ref)).max(0.0);
-            let mut g = (0.7 * (GOAL_FAST - (l_fast - l_ref))).clamp(0.0, G_MAX).min(room);
+            let mut g = (0.8 * (GOAL_FAST - (l_fast - l_ref))).clamp(0.0, G_MAX).min(room);
             g *= ((l_fast + 78.0) / 12.0).clamp(0.0, 1.0);
             let cg = if g < self.g_db { self.c[2] } else { self.c[3] };
             self.g_db = g + cg * (self.g_db - g);
@@ -196,7 +196,7 @@ mod tests {
         let (dark, medium, bright) = (gain(0.006), gain(0.03), gain(0.2));
         assert!(dark > 8.0, "ciemne {dark}");
         assert!(medium > 1.0 && medium < dark, "średnie {medium}");
-        assert!(bright.abs() < 0.3, "jasne {bright}");
+        assert!(bright.abs() < 1.5, "jasne {bright}");
     }
 
     #[test]

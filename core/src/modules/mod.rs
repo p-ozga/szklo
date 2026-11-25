@@ -4,6 +4,7 @@ use crate::module::{Ctx, Module, CONTROL_BLOCK};
 
 pub mod agc;
 pub mod bass;
+pub mod bed;
 pub mod bus_a;
 pub mod binaural;
 pub mod bus_b;
@@ -12,8 +13,10 @@ pub mod declipper;
 pub mod dehummer;
 pub mod dequantizer;
 pub mod dynamics;
+pub mod even;
 pub mod hood;
 pub mod hrtf_kemar;
+pub mod less_words;
 pub mod noise_gate;
 pub mod output;
 pub mod phase_rotation;
@@ -41,6 +44,9 @@ pub fn create(id: ModuleId, ctx: Ctx) -> Box<dyn Module> {
         M::DynamicTreble => Box::new(treble::DynamicTreble::new(ctx)),
         M::Binaural => Box::new(binaural::Binaural::new(ctx)),
         M::Hood => Box::new(hood::Hood::new(ctx)),
+        M::LessWords => Box::new(less_words::LessWords::new(ctx)),
+        M::EvenStream => Box::new(even::EvenStream::new(ctx)),
+        M::Bed => Box::new(bed::Bed::new(ctx)),
         M::Space => Box::new(space::Space::new(ctx)),
         M::DeepBass => Box::new(bass::DeepBass::new(ctx)),
         M::BassBoost => Box::new(bass::BassBoost::new(ctx)),

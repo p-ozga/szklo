@@ -18,7 +18,7 @@ pub use catalog::{Group, ModuleId, ModuleInfo, MODULES, MODULE_COUNT};
 pub use engine::Engine;
 pub use module::{Ctx, Module};
 pub use presets::{Preset, PRESETS};
-pub use shared::{MeterSnapshot, SharedMeters, SharedParams};
+pub use shared::{scope_bytes, MeterSnapshot, Scope, SharedMeters, SharedParams, SCOPE_LEN};
 
 /// Wygodny konstruktor: silnik + współdzielone parametry i mierniki.
 pub fn new_engine(fs: f64) -> (Engine, std::sync::Arc<SharedParams>, std::sync::Arc<SharedMeters>) {

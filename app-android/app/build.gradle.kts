@@ -14,8 +14,8 @@ android {
         applicationId = "pl.szklo"
         minSdk = 26
         targetSdk = 35
-        versionCode = 8
-        versionName = "0.4.0"
+        versionCode = 11
+        versionName = "0.6.0"
         // Bez abiFilters: pakujemy to, co cargo-ndk położy w src/main/jniLibs
         // (domyślnie arm64-v8a i armeabi-v7a; opcjonalnie x86_64 dla emulatora – README).
     }
@@ -35,6 +35,13 @@ android {
 
     buildFeatures {
         compose = true
+    }
+
+    // wspólne pliki z programem na PC (wizualizacja): <repo>/wspolne/wizualizacja → assets/wizualizacja
+    sourceSets {
+        getByName("main") {
+            assets.srcDir("../../wspolne")
+        }
     }
 
     packaging {

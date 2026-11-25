@@ -1,7 +1,7 @@
 //! Most JNI: klasa Kotlin `pl.szklo.core.NativeEngine`.
 //! `unsafe` tylko na granicy FFI (uchwyt = wskaźnik na `Handle` w Box).
 
-use jni::objects::{JClass, JFloatArray, JString};
+use jni::objects::{JByteArray, JClass, JFloatArray, JString};
 use jni::sys::{jboolean, jfloat, jint, jlong, JNI_FALSE, JNI_TRUE};
 use jni::JNIEnv;
 use std::sync::{Arc, Mutex};
@@ -165,10 +165,36 @@ pub extern "system" fn Java_pl_szklo_core_NativeEngine_nativeProcess(env: JNIEnv
     if env.get_float_array_region(&buf, 0, &mut scratch[..n]).is_err() {
         return;
     }
-    if let Ok(mut e) = h.engine.lock() {
-        e.process_interleaved(&mut scratch[..n], channels as usize);
+    // panika w rdzeniu nie może zabić całej aplikacji: wtedy bufor zostaje bez zmian (dźwięk nieprzetworzony)
+    let ok = match h.engine.lock() {
+        Ok(mut e) => std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| e.process_interleaved(&mut scratch[..n], channels as usize))).is_ok(),
+        Err(_) => false,
+    };
+    if ok {
+        let _ = env.set_float_array_region(&buf, 0, &scratch[..n]);
     }
-    let _ = env.set_float_array_region(&buf, 0, &scratch[..n]);
+}
+
+/// Fala wyjścia dla wizualizacji: włącza podgląd (albo wyłącza przy `on` = false) i wypełnia `out` (2048 bajtów:
+/// lewy, prawy; 8 bitów ze środkiem 128). Ta sama dla odtwarzacza plików i Spotify Connect (wspólne mierniki).
+#[no_mangle]
+pub extern "system" fn Java_pl_szklo_core_NativeEngine_nativeScope(env: JNIEnv, _c: JClass, h: jlong, on: jboolean, out: JByteArray) -> jboolean {
+    let Some(h) = handle(h) else { return JNI_FALSE };
+    h.meters.scope.set_enabled(on != JNI_FALSE);
+    if on == JNI_FALSE {
+        return JNI_FALSE;
+    }
+    let mut b = [0u8; 2 * szklo_core::SCOPE_LEN];
+    if !h.meters.scope.read_bytes(&mut b) {
+        return JNI_FALSE; // nic nowego nie zagrało
+    }
+    // SAFETY: u8 i i8 mają ten sam układ w pamięci
+    let s: &[i8] = unsafe { std::slice::from_raw_parts(b.as_ptr() as *const i8, b.len()) };
+    if env.get_array_length(&out).map(|n| n as usize >= b.len()).unwrap_or(false) && env.set_byte_array_region(&out, 0, s).is_ok() {
+        JNI_TRUE
+    } else {
+        JNI_FALSE
+    }
 }
 
 /// out[0..5] = WE dBFS, WY dBFS, GR dB, LUFS (3 s), dBTP (szczyt 3 s).

@@ -2,7 +2,7 @@
 //! Poziom pasma: RMS τ = 10 ms; szum N_b = minimum (poziomu wygładzonego 100 ms) z ostatnich 10 s;
 //! próg T_b = min(N_b + 6, T_max); c = (R_e − 1)·max(0, T_b − x_G) z kolanem 6 dB, c ≤ D_max;
 //! histereza: otwarcie przy T_b + 3 dB. Balistyka: otwieranie 2 ms, przytrzymanie 50 ms, zamykanie 150 ms.
-//! Suwak: R_e = lin(a, 1, 3); T_max = lin(a, −80, −50) dBFS; D_max = 18a dB.
+//! Suwak: R_e = lin(a, 1, 3); T_max = lin(a, −80, −42) dBFS; D_max = 18a dB.
 
 use super::{lin, und};
 use crate::catalog::ModuleId;
@@ -103,7 +103,7 @@ impl Module for NoiseGate {
             let k = (n - off).min(CONTROL_BLOCK);
             let a = self.a.advance(k);
             let r_e = lin(a, 1.0, 3.0);
-            let t_max = lin(a, -80.0, -50.0);
+            let t_max = lin(a, -80.0, -42.0); // 2026-11-25: było −50 – szum taśmy (ok. −48 dBFS) zostawał w pauzach
             let d_max = 18.0 * a;
             for i in 0..k {
                 self.xl.split(l[off + i], &mut t5);
@@ -121,9 +121,13 @@ impl Module for NoiseGate {
                 for i in 0..k {
                     sq += self.bl[i][b] * self.bl[i][b] + self.br[i][b] * self.br[i][b];
                 }
-                self.ms[b] = self.k[0] * self.ms[b] + (1.0 - self.k[0]) * sq / (2.0 * k as f64);
+                let p = sq / (2.0 * k as f64);
+                // pierwszy blok z dźwiękiem ustawia poziomy od razu: start od −120 dB wpisywał do minimum z 10 s wartość
+                // ok. −76 dB i bramka przez pierwsze 10 s po włączeniu nie robiła nic
+                let start = self.lvl100[b] <= -119.0 && p > 1e-10;
+                self.ms[b] = if start { p } else { self.k[0] * self.ms[b] + (1.0 - self.k[0]) * p };
                 let xg = 10.0 * (self.ms[b] + 1e-18).log10();
-                self.lvl100[b] = self.k[1] * self.lvl100[b] + (1.0 - self.k[1]) * xg;
+                self.lvl100[b] = if start { xg } else { self.k[1] * self.lvl100[b] + (1.0 - self.k[1]) * xg };
                 if push_noise {
                     self.noise_db[b] = self.noise[b].push(self.lvl100[b]);
                 }

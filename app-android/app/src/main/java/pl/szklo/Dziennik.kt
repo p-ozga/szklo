@@ -140,11 +140,16 @@ object Dziennik {
 
     /** Czyta logcat własnego procesu i dopisuje do pliku; po przerwaniu próbuje ponownie. */
     private fun czytajLogcat() {
+        var pierwszy = true
         while (true) {
             try {
                 usunStare()
-                val p = ProcessBuilder("logcat", "-v", "threadtime", "--pid=${android.os.Process.myPid()}", "*:I")
-                    .redirectErrorStream(true).start()
+                // po przerwaniu czytamy tylko nowe wpisy (-T 1), inaczej cały bufor trafiał do pliku drugi raz
+                val arg = mutableListOf("logcat", "-v", "threadtime", "--pid=${android.os.Process.myPid()}")
+                if (!pierwszy) arg += listOf("-T", "1")
+                arg += "*:I"
+                pierwszy = false
+                val p = ProcessBuilder(arg).redirectErrorStream(true).start()
                 p.inputStream.bufferedReader().useLines { linie -> linie.forEach { dopisz(it) } }
             } catch (e: Exception) {
                 dopisz("(dziennik: logcat niedostępny: ${e.message})")

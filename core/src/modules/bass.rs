@@ -12,7 +12,7 @@ use std::f64::consts::FRAC_1_SQRT_2;
 // ───────────────────────────── Głęboki bas ─────────────────────────────
 
 /// HPF podsoniczny f_hp = 8 + 14·min(1, 2a) Hz + dzwon 55 Hz Q 0,9 o wzmocnieniu dynamicznym
-/// G_dyn = 8a dB · clamp((−12 − L_lf)/18, 0, 1), L_lf = RMS (50 ms) pasma < 120 Hz; wygładzanie: w dół 20 ms, w górę 300 ms.
+/// G_dyn = 8a dB · clamp((+1 − L_lf)/10, 0,35, 1), L_lf = RMS (0,4 s) pasma < 120 Hz; wygładzanie: w dół 20 ms, w górę 300 ms.
 pub struct DeepBass {
     ctx: Ctx,
     a: Smoother,
@@ -42,7 +42,7 @@ impl DeepBass {
             a_down: 0.0,
             a_up: 0.0,
             last_fhp: -1.0,
-            last_g: f64::NAN,
+            last_g: 0.0,
         };
         s.reset(ctx);
         s
@@ -63,14 +63,15 @@ impl Module for DeepBass {
         self.ctx = ctx;
         self.a = Smoother::new(self.a.target(), 0.02, ctx.fs);
         let kfs = ctx.fs / CONTROL_BLOCK as f64;
-        self.a_ms = tau_coeff(0.05, kfs);
+        self.a_ms = tau_coeff(0.4, kfs);
         self.a_down = tau_coeff(0.02, kfs);
         self.a_up = tau_coeff(0.3, kfs);
         self.lp_det = Svf::new(SvfCoeffs::new(ctx.fs, 120.0, FRAC_1_SQRT_2, Mode::Lowpass));
         self.ms = 0.0;
         self.g = 0.0;
         self.last_fhp = -1.0;
-        self.last_g = f64::NAN;
+        // 0, nie NaN: porównanie z NaN jest zawsze fałszywe i dzwon nigdy nie dostawał wzmocnienia (błąd do 0.4.0)
+        self.last_g = 0.0;
         for f in self.hp.iter_mut().chain(self.bell.iter_mut()) {
             f.reset();
         }
@@ -105,7 +106,9 @@ impl Module for DeepBass {
             }
             s.ms = s.a_ms * s.ms + (1.0 - s.a_ms) * acc / cl.len() as f64;
             let l_lf = 10.0 * (s.ms + 1e-18).log10();
-            let target = 8.0 * a * ((-12.0 - l_lf) / 18.0).clamp(0.0, 1.0);
+            // 2026-11-25: było (−12 − L)/18 przy detektorze 50 ms – wzmocnienie znikało na każdym uderzeniu basu, czyli
+            // dokładnie wtedy, gdy miało działać (0,2 JND przy 100%). Teraz wolny poziom (0,4 s) i zawsze co najmniej 35 %.
+            let target = 8.0 * a * ((1.0 - l_lf) / 10.0).clamp(0.35, 1.0);
             let al = if target < s.g { s.a_down } else { s.a_up };
             s.g = target + al * (s.g - target);
             if (s.g - s.last_g).abs() > 0.01 || (s.g == 0.0 && s.last_g != 0.0) {
@@ -190,7 +193,7 @@ impl Module for BassBoost {
 
 /// Brakująca podstawowa (Larsen & Aarts; US 5,930,373 – wygasły). Tor boczny mono:
 /// s = LP4(110)(HP2(40)(m)); e = szczyt |s| (5/60 ms); u = clamp(s/(e+1e−4)); h = T2 + 0,7·T3 + 0,35·T4;
-/// v = LP2(400)·LP2(400)·HP2(100)(e·h); L,R += g_h·v, g_h = a^1,5.
+/// v = LP2(400)·LP2(400)·HP2(100)(e·h); L,R += g_h·v, g_h = 1,7·a.
 pub struct HarmonicBass {
     ctx: Ctx,
     a: Smoother,
@@ -246,7 +249,8 @@ impl Module for HarmonicBass {
         let s = &mut *self;
         control_chunks(l, r, |cl, cr| {
             let a = s.a.advance(cl.len());
-            let gh = a.powf(1.5);
+            // 2026-11-25: było a^1,5 – połowa suwaka martwa, przy 100% tylko 3 JND
+            let gh = 1.7 * a;
             for i in 0..cl.len() {
                 let m = 0.5 * (cl[i] + cr[i]);
                 let x = s.hp40.tick(m);
@@ -288,5 +292,22 @@ mod tests {
     #[test]
     fn harmonic_bass_standard() {
         crate::modules::testkit::standard(|c| Box::new(HarmonicBass::new(c)), ModuleId::HarmonicBass, 1e-12);
+    }
+    /// Regresja (błąd do 0.4.0): ton 55 Hz ma być wyraźnie głośniejszy przy pełnym suwaku.
+    #[test]
+    fn deep_bass_really_boosts() {
+        use crate::module::{Ctx, Module};
+        let fs = 48_000.0;
+        let n = 48_000 * 4;
+        let x: Vec<f64> = (0..n).map(|i| 0.1 * (2.0 * std::f64::consts::PI * 55.0 * i as f64 / fs).sin()).collect();
+        let ctx = Ctx::new(fs);
+        let mut m = DeepBass::new(ctx);
+        m.set_amount(ModuleId::DeepBass, 1.0);
+        m.reset(ctx);
+        let (mut l, mut r) = (x.clone(), x.clone());
+        crate::modules::testkit::run(&mut m, &mut l, &mut r);
+        let e = |v: &[f64]| v[n / 2..].iter().map(|q| q * q).sum::<f64>();
+        let d = 10.0 * (e(&l) / e(&x)).log10();
+        assert!(d > 5.0 && d < 8.5, "55 Hz: {d} dB");
     }
 }

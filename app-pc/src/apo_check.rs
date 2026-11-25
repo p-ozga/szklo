@@ -40,13 +40,18 @@ pub fn otworz_device_selector() -> Result<(), String> {
     use windows::core::{w, HSTRING};
     use windows::Win32::UI::Shell::ShellExecuteW;
     use windows::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
-    let exe = r"C:\Program Files\EqualizerAPO\DeviceSelector.exe";
-    if !std::path::Path::new(exe).exists() {
-        return Err("nie znaleziono Equalizer APO (C:\\Program Files\\EqualizerAPO) – zainstaluj go najpierw".into());
+    // folder z rejestru (Equalizer APO można zainstalować gdzie indziej niż w Program Files)
+    let Some((folder, _)) = crate::instalacja::apo_sciezki() else {
+        return Err("nie znaleziono Equalizer APO – zainstaluj go najpierw".into());
+    };
+    let exe = folder.join("DeviceSelector.exe");
+    if !exe.exists() {
+        return Err(format!("brak {}", exe.display()));
     }
+    let (exe, katalog) = (exe.to_string_lossy().into_owned(), folder.to_string_lossy().into_owned());
+    let (exe, katalog) = (exe.as_str(), katalog.as_str());
     // Katalog roboczy = folder Equalizer APO: DeviceSelector szuka wtyczek Qt w „qt\platforms” WZGLĘDEM
     // katalogu roboczego – uruchomiony z katalogu Szkła kończy się błędem „no Qt platform plugin”.
-    let katalog = r"C:\Program Files\EqualizerAPO";
     // SAFETY: stałe łańcuchy; ShellExecute obsługuje manifest „wymaga administratora” (UAC).
     let h = unsafe { ShellExecuteW(None, w!("open"), &HSTRING::from(exe), None, &HSTRING::from(katalog), SW_SHOWNORMAL) };
     if (h.0 as isize) <= 32 {
@@ -68,7 +73,9 @@ pub fn restart_dzwieku() -> Result<(), String> {
     use windows::Win32::UI::WindowsAndMessaging::SW_HIDE;
     let arg = HSTRING::from("-NoProfile -WindowStyle Hidden -Command \"Restart-Service -Name Audiosrv -Force\"");
     // SAFETY: stałe łańcuchy; „runas” = uruchom jako administrator (okno zgody Windows).
-    let h = unsafe { ShellExecuteW(None, w!("runas"), w!("powershell.exe"), &arg, None, SW_HIDE) };
+    // pełna ścieżka: przy uruchamianiu z uprawnieniami administratora nie zdajemy się na kolejność wyszukiwania
+    let ps = format!(r"{}\System32\WindowsPowerShell\v1.0\powershell.exe", std::env::var("SystemRoot").unwrap_or_else(|_| r"C:\Windows".into()));
+    let h = unsafe { ShellExecuteW(None, w!("runas"), &HSTRING::from(ps), &arg, None, SW_HIDE) };
     if (h.0 as isize) <= 32 {
         return Err(format!("nie udało się uruchomić ponownie dźwięku Windows (kod {}) – uruchom ponownie komputer", h.0 as isize));
     }

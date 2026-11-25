@@ -267,6 +267,8 @@ impl Engine {
             }
         }
 
+        self.meters.scope.push(&self.l[..n], &self.r[..n]);
+
         // Mierniki
         let out_peak = peak(&self.l[..n], &self.r[..n]);
         self.lufs.process(&self.l[..n], &self.r[..n]);

@@ -17,6 +17,8 @@ struct BandSpec {
     release: f64,
     /// druga gałąź zwolnienia (0 = brak), atak gałęzi wolnej = 10·attack
     release2: f64,
+    /// stała czasowa detektora pasma [s]; 0 = wspólna z `Config::det`
+    det: f64,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -43,22 +45,26 @@ struct Config {
 }
 
 const MB2_BANDS: [BandSpec; 3] = [
-    BandSpec { t0: -22.0, l_ref: -20.0, attack: 0.3, release: 2.0, release2: 0.0 },
-    BandSpec { t0: -22.0, l_ref: -20.0, attack: 0.3, release: 2.0, release2: 0.0 },
-    BandSpec { t0: -30.0, l_ref: -28.0, attack: 0.3, release: 2.0, release2: 0.0 },
+    BandSpec { t0: -22.0, l_ref: -20.0, attack: 0.3, release: 2.0, release2: 0.0, det: 0.0 },
+    BandSpec { t0: -22.0, l_ref: -20.0, attack: 0.3, release: 2.0, release2: 0.0, det: 0.0 },
+    BandSpec { t0: -30.0, l_ref: -28.0, attack: 0.3, release: 2.0, release2: 0.0, det: 0.0 },
 ];
-const COMP_BANDS: [BandSpec; 1] = [BandSpec { t0: -20.0, l_ref: -19.0, attack: 0.01, release: 0.08, release2: 1.0 }];
+const COMP_BANDS: [BandSpec; 1] = [BandSpec { t0: -20.0, l_ref: -19.0, attack: 0.01, release: 0.08, release2: 1.0, det: 0.0 }];
 const MB1_BANDS: [BandSpec; 5] = [
-    BandSpec { t0: -22.0, l_ref: -20.0, attack: 0.020, release: 0.250, release2: 0.0 },
-    BandSpec { t0: -23.0, l_ref: -21.0, attack: 0.015, release: 0.200, release2: 0.0 },
-    BandSpec { t0: -25.0, l_ref: -23.0, attack: 0.010, release: 0.150, release2: 0.0 },
-    BandSpec { t0: -30.0, l_ref: -28.0, attack: 0.005, release: 0.100, release2: 0.0 },
-    BandSpec { t0: -36.0, l_ref: -34.0, attack: 0.003, release: 0.080, release2: 0.0 },
+    // det: detektor musi być wolniejszy niż okres najniższych dźwięków pasma. Wspólne 5 ms i chwilowy szczyt (do 0.5.0)
+    // sprawiały, że w basie wzmocnienie falowało w takt samej fali – zniekształcenia ok. 1,3 % na stałym sygnale.
+    BandSpec { t0: -22.0, l_ref: -20.0, attack: 0.020, release: 0.250, release2: 0.0, det: 0.045 },
+    BandSpec { t0: -23.0, l_ref: -21.0, attack: 0.015, release: 0.200, release2: 0.0, det: 0.018 },
+    BandSpec { t0: -25.0, l_ref: -23.0, attack: 0.010, release: 0.150, release2: 0.0, det: 0.008 },
+    BandSpec { t0: -30.0, l_ref: -28.0, attack: 0.005, release: 0.100, release2: 0.0, det: 0.005 },
+    BandSpec { t0: -36.0, l_ref: -34.0, attack: 0.003, release: 0.080, release2: 0.0, det: 0.005 },
 ];
 
 #[derive(Clone, Copy, Default)]
 struct BandState {
     ms: f64,
+    /// szczyt z opadaniem (zamiast chwilowego)
+    pk: f64,
     s_f: f64,
     s_s: f64,
     ramp: GainRampState,
@@ -80,7 +86,7 @@ pub struct MultibandComp {
     xr: Option<Crossover>,
     st: Vec<BandState>,
     // współczynniki na blok sterujący
-    a_det: f64,
+    a_det: Vec<f64>,
     a_att: Vec<f64>,
     a_rel: Vec<f64>,
     a_att2: Vec<f64>,
@@ -101,7 +107,7 @@ impl MultibandComp {
             xl: None,
             xr: None,
             st: vec![BandState::default(); nb],
-            a_det: 0.0,
+            a_det: vec![0.0; nb],
             a_att: vec![0.0; nb],
             a_rel: vec![0.0; nb],
             a_att2: vec![0.0; nb],
@@ -170,10 +176,11 @@ impl Module for MultibandComp {
             self.xr = Some(Crossover::new(ctx.fs, self.cfg.freqs));
         }
         let kfs = ctx.fs / CONTROL_BLOCK as f64;
-        self.a_det = tau_coeff(match self.cfg.det {
+        let det_common = match self.cfg.det {
             Detector::Rms(t) | Detector::RmsPeak(t) => t,
-        }, kfs);
+        };
         for (b, bs) in self.cfg.bands.iter().enumerate() {
+            self.a_det[b] = tau_coeff(if bs.det > 0.0 { bs.det } else { det_common }, kfs);
             self.a_att[b] = tau_coeff(bs.attack, kfs);
             self.a_rel[b] = tau_coeff(bs.release, kfs);
             self.a_att2[b] = tau_coeff(10.0 * bs.attack, kfs);
@@ -222,11 +229,13 @@ impl Module for MultibandComp {
                     pk = pk.max(u.abs()).max(v.abs());
                 }
                 let st = &mut self.st[b];
-                st.ms = self.a_det * st.ms + (1.0 - self.a_det) * sq / (2.0 * k as f64);
+                let ad = self.a_det[b];
+                st.ms = ad * st.ms + (1.0 - ad) * sq / (2.0 * k as f64);
+                st.pk = pk.max(ad * st.pk);
                 let rms_db = 10.0 * (st.ms + 1e-18).log10();
                 let xg = match self.cfg.det {
                     Detector::Rms(_) => rms_db,
-                    Detector::RmsPeak(_) => rms_db.max(20.0 * (pk + 1e-9).log10() - 9.0),
+                    Detector::RmsPeak(_) => rms_db.max(20.0 * (st.pk + 1e-9).log10() - 9.0),
                 };
                 let gc = GainComputer { threshold_db: spec.t0 - self.cfg.t_drop * a, ratio, knee_db: self.cfg.knee };
                 let c = gc.reduction_db(xg).min(self.cfg.max_red);

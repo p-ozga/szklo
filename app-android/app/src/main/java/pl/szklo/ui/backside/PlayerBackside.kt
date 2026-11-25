@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
@@ -41,6 +42,11 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
+import android.annotation.SuppressLint
+import android.util.Base64
+import android.webkit.WebView
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -101,8 +107,72 @@ fun PlayerBackside(
             SpotifyConnectCard(coreAvailable)
             ExternalPlayersCard(controls)
             LocalPlayerCard(player, coreAvailable, local)
+            WizualizacjaCard(coreAvailable)
             DziennikCard()
             LicensesCard()
+        }
+    }
+}
+
+/**
+ * Wizualizacja muzyki: strona z assets/wizualizacja (wspólna z programem na PC; silnik Butterchurn – Jordan Berg, MIT,
+ * presety własne) w WebView. Dźwięk podaje rdzeń (fala wyjścia), więc działa dla odtwarzacza Szkła i Spotify Connect;
+ * w trybie „inne aplikacje” aplikacja nie ma dostępu do dźwięku.
+ */
+@Composable
+private fun WizualizacjaCard(coreAvailable: Boolean) {
+    var on by remember { mutableStateOf(false) }
+    GlassCard {
+        Text("Wizualizacja", style = SzkloType.CardTitle)
+        Text(
+            if (coreAvailable) {
+                "Obraz poruszany muzyką z odtwarzacza Szkła i ze Spotify Connect. Stuknij obraz, żeby go zmienić. " +
+                    "Włączona zużywa więcej baterii."
+            } else {
+                "Niedostępna: rdzeń Szkła nie jest wczytany."
+            },
+            style = SzkloType.BodySecondary,
+        )
+        if (coreAvailable) {
+            PillButton(if (on) "Wyłącz wizualizację" else "Włącz wizualizację", onClick = { on = !on }, primary = !on)
+            if (on) WizualizacjaWidok()
+        }
+    }
+}
+
+@SuppressLint("SetJavaScriptEnabled")
+@Composable
+private fun WizualizacjaWidok() {
+    var web by remember { mutableStateOf<WebView?>(null) }
+    AndroidView(
+        modifier = Modifier.fillMaxWidth().height(230.dp).clip(RoundedCornerShape(14.dp)),
+        factory = { ctx ->
+            WebView(ctx).apply {
+                setBackgroundColor(android.graphics.Color.BLACK)
+                // tylko własna strona z zasobów aplikacji; bez dostępu do plików, treści i sieci
+                settings.javaScriptEnabled = true
+                settings.allowFileAccess = false
+                settings.allowContentAccess = false
+                settings.blockNetworkLoads = true
+                loadUrl("file:///android_asset/wizualizacja/index.html?fps=30&skala=1.25")
+                web = this
+            }
+        },
+        onRelease = { it.destroy() },
+    )
+    LaunchedEffect(web) {
+        val w = web ?: return@LaunchedEffect
+        val bufor = ByteArray(NativeEngine.SCOPE_BYTES)
+        try {
+            while (isActive) {
+                // ok. 30 razy na sekundę; gdy nic nie gra, nic nie wysyłamy i obraz sam się uspokaja
+                if (AudioHub.readScope(bufor)) {
+                    w.evaluateJavascript("window.szkloFala&&szkloFala('${Base64.encodeToString(bufor, Base64.NO_WRAP)}')", null)
+                }
+                delay(33)
+            }
+        } finally {
+            AudioHub.scopeOff()
         }
     }
 }

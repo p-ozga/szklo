@@ -108,6 +108,7 @@ pub fn pobierz_i_zainstaluj(postep: &dyn Fn(String)) -> Result<PathBuf, String> 
     let _koniec = Koniec;
     postep("Sprawdzam najnowsze wydanie MilkDrop 3…".into());
     let klient = reqwest::blocking::Client::builder()
+        .https_only(true)
         .user_agent("Szklo-DSP")
         // hojny limit na całość (90 MB na wolnym łączu), ale zerwane połączenie nie wisi w nieskończoność
         .timeout(Some(std::time::Duration::from_secs(30 * 60)))

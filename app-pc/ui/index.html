@@ -200,6 +200,18 @@ select option{background:#0d2326;color:var(--tekst)}
 .odtw-karta.milk .odtw-gora > *:not(#odtwPowieksz):not(#odtwPelny){visibility:hidden}
 #odtwPelny{display:none}
 .odtw-karta.milk #odtwPelny{display:inline-flex}
+/* wizualizacja wbudowana: płótno w karcie zamiast listy; w nagłówku nazwa presetu i trzy przyciski */
+#wizPlotno{display:none;position:absolute;left:12px;right:12px;top:56px;bottom:12px;width:calc(100% - 24px);height:calc(100% - 68px);border-radius:12px;background:#000;cursor:pointer}
+.odtw-karta.wiz{background:#000 !important}
+.odtw-karta.wiz > *:not(.odtw-gora):not(#wizPlotno){visibility:hidden}
+.odtw-karta.wiz #wizPlotno{display:block}
+.odtw-karta.wiz .odtw-gora > *:not(#odtwPowieksz):not(#odtwPelny):not(.wiz-tylko){visibility:hidden}
+.odtw-karta.wiz #odtwPelny{display:inline-flex}
+.wiz-tylko{display:none}
+.odtw-karta.wiz .wiz-tylko{display:inline-flex}
+#wizNazwa{align-items:center;font-size:12px;color:#7FEFFB;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;position:absolute;left:16px;top:18px;max-width:45%}
+body.pelny .odtw-karta.wiz #wizPlotno{position:fixed;inset:0;width:100vw;height:100vh;border-radius:0;z-index:60}
+body.pelny .odtw-karta.wiz .odtw-gora{visibility:hidden}
 .odtw-pusto{padding:24px;text-align:center;color:var(--tekst60);font-size:13px}
 .lic-skrot{font-size:11.5px !important;line-height:1.5 !important}
 .lic-nakladka{position:absolute;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;padding:28px;background:rgba(4,14,16,.55);backdrop-filter:blur(6px)}
@@ -317,7 +329,10 @@ select option{background:#0d2326;color:var(--tekst)}
             <button type="button" class="ikona-btn" id="odtwZrodloPliki" title="Dodaj pliki z dysku" aria-label="Dodaj pliki z dysku"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
             <button type="button" class="ikona-btn" id="odtwZrodloFolder" title="Dodaj folder" aria-label="Dodaj folder"><svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></button>
             <button type="button" class="ikona-btn" id="odtwSpotify" title="Spotify" aria-label="Spotify"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M7.5 10c3-1 6.5-.6 9 1M8 13.2c2.5-.7 5.2-.4 7.3.8M8.6 16.2c2-.5 4-.3 5.7.6"/></svg></button>
-            <button type="button" class="ikona-btn odtw-tylko-duzy" id="odtwMilk" title="Wizualizacja MilkDrop 3 (osobny program – trzeba go pobrać)" aria-label="Wizualizacja MilkDrop 3"><svg viewBox="0 0 24 24"><path d="M12 3l1.8 4.7L18.5 9l-4.7 1.8L12 15.5l-1.8-4.7L5.5 9l4.7-1.3zM18 15l.9 2.1L21 18l-2.1.9L18 21l-.9-2.1L15 18l2.1-.9z"/></svg></button>
+            <button type="button" class="ikona-btn odtw-tylko-duzy" id="odtwMilk" title="Wizualizacja" aria-label="Wizualizacja"><svg viewBox="0 0 24 24"><path d="M12 3l1.8 4.7L18.5 9l-4.7 1.8L12 15.5l-1.8-4.7L5.5 9l4.7-1.3zM18 15l.9 2.1L21 18l-2.1.9L18 21l-.9-2.1L15 18l2.1-.9z"/></svg></button>
+            <span class="wiz-tylko" id="wizNazwa" role="status"></span>
+            <button type="button" class="ikona-btn wiz-tylko" id="wizNast" title="Następny obraz (albo kliknij wizualizację)" aria-label="Następny obraz"><svg viewBox="0 0 24 24"><path d="M5 5l9 7-9 7zM18 5v14"/></svg></button>
+            <button type="button" class="ikona-btn wiz-tylko" id="wizMilk" title="MilkDrop 3 – osobny program innego autora (trzeba go pobrać)" aria-label="MilkDrop 3, osobny program"><svg viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-8 8M10 6H5v13h13v-5"/></svg></button>
             <button type="button" class="ikona-btn" id="odtwPelny" title="Pełny ekran (Esc – powrót)" aria-label="Wizualizacja na pełnym ekranie"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
             <button type="button" class="ikona-btn" id="odtwPowieksz" title="Powiększ" aria-label="Powiększ odtwarzacz"><svg class="ik-wieksz" viewBox="0 0 24 24"><path d="M14 4h6v6M10 20H4v-6M20 4l-7 7M4 20l7-7"/></svg><svg class="ik-mniej" viewBox="0 0 24 24"><path d="M10 4v6H4M14 20v-6h6M4 4l6 6M20 20l-6-6"/></svg></button>
           </div>
@@ -326,6 +341,7 @@ select option{background:#0d2326;color:var(--tekst)}
             <div class="odtw-zegar"><span class="odtw-znak" id="odtwZnak">■</span><span id="odtwZegar">00:00</span></div>
             <canvas id="odtwWidmo" width="720" height="150"></canvas>
           </div>
+          <canvas id="wizPlotno" aria-label="Wizualizacja muzyki. Kliknij, aby zmienić obraz."></canvas>
           <div class="milk-brak" id="milkBrak" hidden role="dialog" aria-labelledby="milkBrakTyt">
             <div class="etykieta" id="milkBrakTyt">MilkDrop 3 – osobny program</div>
             <p>Wizualizację MilkDrop 3 tworzy osobny, darmowy program autorstwa milkdrop2077 (oparty na BeatDrop, kod na licencji BSD-3; nie jest częścią Szkła). Szkło pobierze jego instalator (ok. 90 MB) z oficjalnego wydania autora na GitHubie i go uruchomi – przejdź przez kroki instalatora, a wizualizacja włączy się w tej karcie.</p>
@@ -413,7 +429,7 @@ select option{background:#0d2326;color:var(--tekst)}
           <button type="button" class="btn-szklo btn-glowny" id="btnApoRestart" hidden title="Uruchamia ponownie usługę dźwięku Windows (poprosi o zgodę administratora). Dźwięk we wszystkich programach przerwie się na kilka sekund.">Załaduj bez restartu komputera</button>
           <p>Tryb automatyczny: Szkło przetwarza cały dźwięk na urządzeniu, którego właśnie używa Windows – podłącz słuchawki albo połącz Bluetooth, a Szkło przejdzie na nie samo (urządzenie musi mieć Equalizer APO – przycisk wyżej doda go jednym kliknięciem). Tryb ręczny: wybrane wejście → wybrane wyjście.</p>
           <div class="spacer"></div>
-          <p class="lic-skrot">Szkło korzysta z cudzych elementów: czcionek Inter i Space Grotesk, bibliotek open source (m.in. librespot, Symphonia), WebView2 (Microsoft), Equalizer APO (Jonas Thedering) i – jeśli go pobierzesz – MilkDrop 3 (milkdrop2077). Spotify i VST to znaki towarowe ich właścicieli – Szkło nie jest z nimi powiązane.</p>
+          <p class="lic-skrot">Szkło korzysta z cudzych elementów: czcionek Inter i Space Grotesk, bibliotek open source (m.in. librespot, Symphonia), WebView2 (Microsoft), Equalizer APO (Jonas Thedering) silnika wizualizacji Butterchurn (Jordan Berg, MIT), pomiarów HRTF MIT KEMAR i – jeśli go pobierzesz – MilkDrop 3 (milkdrop2077). Spotify i VST to znaki towarowe ich właścicieli – Szkło nie jest z nimi powiązane.</p>
           <button type="button" class="btn-szklo" id="btnLicencje">O programie i licencje</button>
         </div>
       </div>
@@ -560,7 +576,7 @@ function odtwKlatka() {
   requestAnimationFrame(odtwKlatka);
 }
 document.addEventListener('DOMContentLoaded', () => {
-  $('#odtwPowieksz').addEventListener('click', () => { if (MILK.on) milkStop(); else odtwWidok(!ODTW.duzy); });
+  $('#odtwPowieksz').addEventListener('click', () => { if (MILK.on) milkStop(); else if (WIZ.on) wizStop(); else odtwWidok(!ODTW.duzy); });
   for (const id of ['#odtwZrodloPliki', '#odtwDodaj2']) $(id).addEventListener('click', () => wyslij({ t: 'p_dodaj' }));
   for (const id of ['#odtwZrodloFolder', '#odtwFolder2']) $(id).addEventListener('click', () => wyslij({ t: 'p_folder' }));
   $('#odtwWyczysc').addEventListener('click', () => wyslij({ t: 'p_wyczysc' }));
@@ -578,6 +594,48 @@ document.addEventListener('DOMContentLoaded', () => {
   su.addEventListener('input', () => { ODTW.przeciaga = true; $('#odtwPoz').textContent = mmss(odtwDane().czas * su.value / 1000); });
   su.addEventListener('change', () => { ODTW.przeciaga = false; const d = odtwDane(); if (d.czas > 0) wyslij({ t: d.zew ? 'z_szukaj' : 'p_szukaj', s: d.czas * su.value / 1000 }); });
   $('#odtwKarta').addEventListener('keydown', e => { if (e.key === 'Escape' && ODTW.duzy) { e.preventDefault(); e.stopPropagation(); odtwWidok(false); } });
+});
+/* ---------- wizualizacja wbudowana (silnik Butterchurn, własne presety; pliki /wiz/…) ---------- */
+const WIZ = { on: false, gotowa: null, obserwator: null };
+function wizWczytaj() {
+  // trzy skrypty po kolei, tylko raz i dopiero przy pierwszym użyciu (start programu ich nie potrzebuje)
+  if (!WIZ.gotowa) WIZ.gotowa = ['/wiz/butterchurn.min.js', '/wiz/presety.js', '/wiz/wiz.js'].reduce((p, src) => p.then(() => new Promise((ok, zle) => {
+    const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = () => zle(new Error('nie wczytano ' + src)); document.head.appendChild(s);
+  })), Promise.resolve());
+  return WIZ.gotowa;
+}
+function wizRozmiar() {
+  const c = $('#wizPlotno'), r = c.getBoundingClientRect(), dpr = Math.min(window.devicePixelRatio || 1, 2);
+  if (window.SzkloWiz && r.width > 8) SzkloWiz.rozmiar(r.width * dpr, r.height * dpr);
+}
+function wizStart() {
+  if (WIZ.on || MILK.on) return;
+  WIZ.on = true; $('#odtwKarta').classList.add('wiz'); $('#odtwBlad').textContent = '';
+  $('#odtwPowieksz').title = 'Zmniejsz (zamyka wizualizację)';
+  wizWczytaj().then(() => {
+    if (!WIZ.on) return;
+    const c = $('#wizPlotno'), r = c.getBoundingClientRect(), dpr = Math.min(window.devicePixelRatio || 1, 2);
+    c.width = Math.max(16, Math.round(r.width * dpr)); c.height = Math.max(16, Math.round(r.height * dpr));
+    const blad = SzkloWiz.dziala() ? null : SzkloWiz.start(c, { fps: 60, naNazwe: n => { $('#wizNazwa').textContent = n; } });
+    if (blad) { wizStop(); $('#odtwBlad').textContent = 'Wizualizacja: ' + blad; return; }
+    SzkloWiz.wznow(); wizRozmiar();
+    // karta jeszcze się powiększa – rozmiar płótna poprawiany także po chwili (nie tylko przez obserwatora)
+    for (const ms of [200, 700, 1500]) setTimeout(() => { if (WIZ.on) wizRozmiar(); }, ms);
+    if (!WIZ.obserwator) { WIZ.obserwator = new ResizeObserver(wizRozmiar); WIZ.obserwator.observe(c); }
+    wyslij({ t: 'wiz', b: true });
+  }).catch(e => { wizStop(); $('#odtwBlad').textContent = 'Wizualizacja: ' + e.message; });
+}
+function wizStop() {
+  if (!WIZ.on) return;
+  if (MILK.pelny) wyslij({ t: 'md_pelny', b: false });
+  WIZ.on = false; $('#odtwKarta').classList.remove('wiz'); $('#odtwPowieksz').title = 'Zmniejsz';
+  if (window.SzkloWiz) SzkloWiz.stop();
+  wyslij({ t: 'wiz', b: false });
+}
+document.addEventListener('DOMContentLoaded', () => {
+  $('#wizNast').addEventListener('click', () => window.SzkloWiz && SzkloWiz.nastepny());
+  $('#wizPlotno').addEventListener('click', () => window.SzkloWiz && SzkloWiz.nastepny());
+  $('#wizMilk').addEventListener('click', () => { wizStop(); milkStart(); });
 });
 /* ---------- MilkDrop 3 w karcie ---------- */
 const MILK = { on: false };
@@ -603,8 +661,8 @@ function milkStop(wyslijStop = true) {
   if (wyslijStop) wyslij({ t: 'md_stop' });
 }
 document.addEventListener('DOMContentLoaded', () => {
-  $('#odtwMilk').addEventListener('click', milkStart);
-  $('#odtwPelny').addEventListener('click', () => { if (MILK.on) wyslij({ t: 'md_pelny', b: !MILK.pelny }); });
+  $('#odtwMilk').addEventListener('click', wizStart);
+  $('#odtwPelny').addEventListener('click', () => { if (MILK.on || WIZ.on) wyslij({ t: 'md_pelny', b: !MILK.pelny }); });
   $('#milkPobierz').addEventListener('click', () => wyslij({ t: 'md_pobierz' }));
   $('#milkInstaluj').addEventListener('click', () => { MILK.instaluje = true; $('#milkInstaluj').disabled = true; $('#milkPostep').textContent = 'Łączę się z GitHubem…'; wyslij({ t: 'md_instaluj' }); });
   $('#milkWskaz').addEventListener('click', () => { $('#milkBrak').hidden = true; MILK.on = false; milkStart(true); });
@@ -691,17 +749,18 @@ const pl = (x, d=1) => (x < 0 ? '−' : '') + Math.abs(x).toFixed(d).replace('.'
 /* Katalog – kolejność i nazwy dokładnie jak w sekcji 11.4; indeksy = core/src/catalog.rs */
 const GRUPY = [
   ['Naprawa',  [[0,'Declipper'],[1,'Naprawa MP3'],[2,'Szum i brum'],[3,'Dehummer'],[4,'Dekwantyzer'],[5,'Bramka szumów']]],
-  ['Dynamika', [[6,'AGC'],[7,'Multiband 1'],[8,'Multiband 2'],[9,'Kompresor'],[10,'Punch']]],
+  ['Dynamika', [[6,'AGC'],[7,'Multiband 1'],[8,'Multiband 2'],[9,'Kompresor'],[10,'Punch'],[30,'Równy strumień']]],
   ['Bas',      [[11,'Głęboki bas'],[12,'Bas harmoniczny'],[13,'Bass Boost'],[14,'Ciepły bas'],[24,'Radiowy bas']]],
-  ['Barwa',    [[15,'Auto EQ'],[16,'Balans widma'],[25,'Kryształ'],[26,'Dynamiczna góra']]],
-  ['Stereo',   [[17,'Szerokość'],[23,'Przestrzeń'],[28,'Kaptur'],[27,'Binauralny'],[18,'Rotacja fazy']]],
+  ['Barwa',    [[15,'Auto EQ'],[16,'Balans widma'],[25,'Kryształ'],[26,'Dynamiczna góra'],[31,'Szum tła']]],
+  ['Stereo',   [[17,'Szerokość'],[23,'Przestrzeń'],[28,'Kaptur'],[27,'Binauralny'],[29,'Mniej słów'],[18,'Rotacja fazy']]],
   ['Wyjście',  [[19,'Clipper HD'],[20,'Pre-limiter'],[21,'Prosty clipper'],[22,'Hard Limit']]],
 ];
 /* Presety: stan wstępny (nadpisywany przez rdzeń przez szklo.stan) */
 let PRESETY = [
-  {key:'codzienny', name:'Codzienny'}, {key:'noc', name:'Noc'}, {key:'stare', name:'Stare nagrania'}, {key:'tramwaj', name:'Głośno w tramwaju'}
+  {key:'codzienny', name:'Codzienny'}, {key:'noc', name:'Noc'}, {key:'stare', name:'Stare nagrania'}, {key:'tramwaj', name:'Głośno w tramwaju'},
+  {key:'skupienie', name:'Skupienie'}, {key:'wyciszenie', name:'Wyciszenie'}
 ];
-const S = { on: Array(29).fill(false), val: Array(29).fill(0), presetVal: Array(29).fill(0), presetOn: Array(29).fill(false),
+const S = { on: Array(32).fill(false), val: Array(32).fill(0), presetVal: Array(32).fill(0), presetOn: Array(32).fill(false),
             preset: 'codzienny', wlaczone: true };
 /* wartości startowe z makiety (renderVals) – zastępowane stanem z rdzenia */
 [[0,60,1],[1,45,1],[6,70,1],[7,55,1],[9,20,1],[10,40,1],[11,35,1],[12,50,1],[14,30,1],[15,60,1],[16,25,1],[17,40,1],[18,100,1],[19,65,1],[22,100,1]]
@@ -729,7 +788,7 @@ function zbuduj() {
     }
     siatka.appendChild(k);
   }
-  for (let i = 0; i < 29; i++) odswiezWiersz(i);
+  for (let i = 0; i < 32; i++) odswiezWiersz(i);
 }
 function fmtProc(v) { return (Math.abs(v - Math.round(v)) < 1e-6 ? Math.round(v).toString() : v.toFixed(1).replace('.', ',')) + '%'; }
 function odswiezWiersz(i) {
@@ -801,7 +860,7 @@ function zbudujChipy() {
 function zmieniony() {
   const p = PRESETY.find(x => x.key === S.preset);
   if (!p || !p.mods) return true;
-  for (let i = 0; i < 29; i++) {
+  for (let i = 0; i < 32; i++) {
     if (!!p.mods[i][0] !== !!S.on[i] || Math.abs(p.mods[i][1] * 100 - S.val[i]) > 0.5) return true;
   }
   return false;
@@ -852,12 +911,12 @@ function wybierzPreset(key) {
   const p = PRESETY.find(x => x.key === key); if (!p || !p.mods) { wyslij({ t: 'preset', key }); return; }
   S.preset = key; zbudujChipy();
   const od = S.val.slice(), cel = p.mods.map(m => m[1] * 100);
-  for (let i = 0; i < 29; i++) { S.presetVal[i] = cel[i]; S.presetOn[i] = p.mods[i][0]; S.on[i] = p.mods[i][0]; }
+  for (let i = 0; i < 32; i++) { S.presetVal[i] = cel[i]; S.presetOn[i] = p.mods[i][0]; S.on[i] = p.mods[i][0]; }
   const t0 = performance.now();
   cancelAnimationFrame(animPresetu);
   const krokAnim = t => {
     const u = Math.min(1, (t - t0) / 150), e = u < .5 ? 2*u*u : 1 - Math.pow(-2*u + 2, 2) / 2;
-    for (let i = 0; i < 29; i++) { S.val[i] = Math.round((od[i] + (cel[i] - od[i]) * e) * 10) / 10; odswiezWiersz(i); }
+    for (let i = 0; i < 32; i++) { S.val[i] = Math.round((od[i] + (cel[i] - od[i]) * e) * 10) / 10; odswiezWiersz(i); }
     wyslij({ t: 'all', on: S.on, a: S.val.map(v => v / 100), preset: key });
     if (u < 1) animPresetu = requestAnimationFrame(krokAnim); else odswiezKartePresetow();
   };
@@ -894,6 +953,7 @@ let naTyle = false, obraca = false;
 function obroc() {
   if (obraca) return; obraca = true;
   milkStop(); // osadzone okno MilkDrop nie obraca się razem z kartą
+  wizStop();
   const talia = $('#talia'), dl = matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 560;
   const zakoncz = () => { obraca = false; (naTyle ? $('#btnPowrot') : $('#logo')).focus({ preventScroll: true }); wyslij({ t: 'side', back: naTyle }); };
   const zamien = () => { naTyle = !naTyle; $('#przod').hidden = naTyle; $('#tyl').hidden = !naTyle; };
@@ -916,16 +976,16 @@ $('#btnPowrot').addEventListener('click', obroc);
 let spacjaWcisnieta = false;
 document.addEventListener('keydown', e => {
   /* suwak (input type=range) nie jest polem tekstowym: po jego użyciu fokus na nim zostaje, a skróty
-     O / E / 1–4 / spacja mają działać dalej (litery, cyfry i spacja nic na suwaku nie robią) */
+     O / E / 1–6 / spacja mają działać dalej (litery, cyfry i spacja nic na suwaku nie robią) */
   const ae = document.activeElement;
   const wPolu = !!ae && (/SELECT|TEXTAREA/.test(ae.tagName) || (ae.tagName === 'INPUT' && ae.type !== 'range'));
   if (!wPolu && (e.key === 'o' || e.key === 'O')) { e.preventDefault(); obroc(); }
   else if (e.key === 'Escape' && naTyle && !wPolu) {
-    if (!$('#licencje').hidden) licZamknij(); else if (MILK.on) milkStop(); else if (ODTW.duzy) odtwWidok(false); else obroc();
+    if (!$('#licencje').hidden) licZamknij(); else if (MILK.on) milkStop(); else if (WIZ.on) wizStop(); else if (ODTW.duzy) odtwWidok(false); else obroc();
   }
   else if (!wPolu && e.code === 'Space' && !e.repeat && !naTyle && !/BUTTON/.test(document.activeElement?.tagName || '')) { e.preventDefault(); spacjaWcisnieta = true; porownaj(true); }
   else if (!wPolu && (e.key === 'e' || e.key === 'E')) { $('#btnWl').click(); }
-  else if (!wPolu && /^[1-4]$/.test(e.key) && !naTyle) { const p = PRESETY[+e.key - 1]; if (p) wybierzPreset(p.key); }
+  else if (!wPolu && /^[1-6]$/.test(e.key) && !naTyle) { const p = PRESETY[+e.key - 1]; if (p) wybierzPreset(p.key); }
   else if ((e.ctrlKey && (e.key === 'w' || e.key === 'W'))) { e.preventDefault(); wyslij({ t: 'hide' }); }
 });
 document.addEventListener('keyup', e => { if (e.code === 'Space' && spacjaWcisnieta) { spacjaWcisnieta = false; porownaj(false); } });
@@ -978,7 +1038,7 @@ window.szklo = {
     if (s.enabled !== undefined) ustawWl(s.enabled);
     if (s.ceiling !== undefined) sufitDb = s.ceiling;
     if (s.device) $('#urzadzenie').textContent = s.device;
-    zbudujChipy(); for (let i = 0; i < 29; i++) odswiezWiersz(i);
+    zbudujChipy(); for (let i = 0; i < 32; i++) odswiezWiersz(i);
   },
   urzadzenia(d) {
     if (d.mode) $('#trybSel').value = d.mode;
@@ -1006,10 +1066,11 @@ window.szklo = {
   // po instalacji: włącz wizualizację tylko, jeśli użytkownik nadal patrzy na panel instalacji w powiększonej karcie
   milkGotowy() { const czeka = !$('#milkBrak').hidden && ODTW.duzy && naTyle; MILK.instaluje = false; $('#milkBrak').hidden = true; $('#milkInstaluj').disabled = false; if (czeka) milkStart(); },
   // pełny ekran włączony/wyłączony przez program: rozmiar okna zmienia się chwilę później, więc poprawiamy położenie kilka razy
-  pelnyEkran(b) { MILK.pelny = !!b; document.body.classList.toggle('pelny', MILK.pelny); for (const t of [0, 120, 400]) setTimeout(() => szklo.milkPrzesun(), t); },
+  pelnyEkran(b) { MILK.pelny = !!b; document.body.classList.toggle('pelny', MILK.pelny); for (const t of [0, 120, 400]) setTimeout(() => { szklo.milkPrzesun(); if (WIZ.on) wizRozmiar(); }, t); },
   milkPrzesun() { if (MILK.on) wyslij({ t: 'md_rect', ...milkProstokat() }); },
   spotify(s) { SP.stan = s; if (SP.zakladka === 'spotify') spRysuj(); },
   widmo(v) { ODTW.widmo = v; },
+  wizFala(b) { if (WIZ.on && window.SzkloWiz) SzkloWiz.fala(b); },
   presetKomunikat(t, ok) {
     prKomunikat(t, ok);
     if (ok) prTryb('normalny');

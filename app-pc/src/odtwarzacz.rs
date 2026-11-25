@@ -503,6 +503,54 @@ impl Utwor {
     }
 }
 
+// ───────────────────────────── fala dla wizualizacji ─────────────────────────────
+
+/// Ostatnie 1024 próbki stereo tego, co słychać (odtwarzacz albo podsłuch wyjścia) – źródło wbudowanej wizualizacji.
+struct Fala {
+    l: [f32; szklo_core::SCOPE_LEN],
+    r: [f32; szklo_core::SCOPE_LEN],
+    pos: usize,
+    licznik: u64,
+    wyslano: u64,
+    env: f32,
+}
+
+static FALA: Mutex<Fala> = Mutex::new(Fala { l: [0.0; szklo_core::SCOPE_LEN], r: [0.0; szklo_core::SCOPE_LEN], pos: 0, licznik: 0, wyslano: 0, env: 0.0 });
+
+fn fala_dopisz(stereo: &[f32]) {
+    let Ok(mut f) = FALA.lock() else { return };
+    let ost = stereo.len().saturating_sub(2 * szklo_core::SCOPE_LEN) & !1;
+    for fr in stereo[ost..].chunks_exact(2) {
+        let p = f.pos;
+        f.l[p] = fr[0];
+        f.r[p] = fr[1];
+        f.pos = (p + 1) % szklo_core::SCOPE_LEN;
+    }
+    f.licznik += 1;
+}
+
+/// Fala od ostatniego wywołania jako base64 (2048 bajtów: lewy, prawy); `None`, gdy nie przyszedł nowy dźwięk.
+pub fn fala_b64() -> Option<String> {
+    use base64::Engine;
+    let mut f = FALA.lock().ok()?;
+    if f.licznik == f.wyslano {
+        return None;
+    }
+    f.wyslano = f.licznik;
+    let n = szklo_core::SCOPE_LEN;
+    let (mut l, mut r) = ([0f32; szklo_core::SCOPE_LEN], [0f32; szklo_core::SCOPE_LEN]);
+    for i in 0..n {
+        let k = (f.pos + i) % n;
+        l[i] = f.l[k];
+        r[i] = f.r[k];
+    }
+    let mut env = f.env;
+    let mut out = [0u8; 2 * szklo_core::SCOPE_LEN];
+    szklo_core::scope_bytes(&l, &r, &mut env, &mut out);
+    f.env = env;
+    Some(base64::engine::general_purpose::STANDARD.encode(out))
+}
+
 // ───────────────────────────── widmo ─────────────────────────────
 
 pub(crate) struct Analizator {
@@ -522,6 +570,7 @@ impl Analizator {
         Self { fft: pl.plan_fft_forward(N_FFT), okno, bufor: Vec::with_capacity(N_FFT * 2), robocze: Vec::with_capacity(N_FFT), fs: fs.max(1) }
     }
     pub(crate) fn dodaj(&mut self, stereo: &[f32], wynik: &Mutex<[f32; PASMA]>) {
+        fala_dopisz(stereo);
         for fr in stereo.chunks(2) {
             self.bufor.push(0.5 * (fr[0] + fr.get(1).copied().unwrap_or(fr[0])));
         }

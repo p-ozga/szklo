@@ -4,7 +4,7 @@ import java.util.Locale
 import kotlin.math.abs
 
 /**
- * Tekstowy zapis stanu modułów: `on:moc;on:moc;…` (25 pozycji w kolejności katalogu), np. `1:0.5000;0:0.0000;…`.
+ * Tekstowy zapis stanu modułów: `on:moc;on:moc;…` (29 pozycji w kolejności katalogu), np. `1:0.5000;0:0.0000;…`.
  * Wspólny dla bieżących ustawień i presetów użytkownika. Odczyt jest odporny na uszkodzenia (null zamiast wyjątku).
  */
 object ParamsCodec {

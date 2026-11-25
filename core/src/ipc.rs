@@ -5,7 +5,7 @@
 //! ze wszystkimi, wysyła stan do każdego, a mierniki bierze z tego, który faktycznie przetwarza dźwięk (rosnące
 //! `frames`). Wcześniej jeden potok o stałej nazwie mogła zająć bezczynna instancja (np. stara wersja DLL).
 //!
-//! GUI → wtyczka:  `P <enabled> <compare> <master> <ceiling> <on>:<amount> ×25`
+//! GUI → wtyczka:  `P <enabled> <compare> <master> <ceiling> <on>:<amount> ×29`
 //! (starsze, krótsze linie są przyjmowane: brakujące moduły = wyłączone; nadmiarowe pozycje są pomijane)
 //! wtyczka → GUI:  `M <in_db> <out_db> <gr_db> <lufs> <tp_db> <fs> <latency> [<frames>]`
 
@@ -122,12 +122,12 @@ mod tests {
         assert!((b.master() - 0.7).abs() < 1e-4);
         assert!((b.ceiling_dbtp() + 1.5).abs() < 1e-4);
         assert!(!apply_params_line("P 1 0", &b));
-        // linia starszej wersji (23 moduły) – ostatni moduł wyłączony; linia nowszej (27) – nadmiar pominięty
+        // linia starszej wersji (23 moduły) – ostatni moduł wyłączony; linia nowszej (31) – nadmiar pominięty
         let stara: String = format!("P 1 0 1.0 -1.0{}", " 1:0.5".repeat(23));
         assert!(apply_params_line(&stara, &b));
         assert_eq!(b.module(22), (true, 0.5));
         assert!(!b.module(23).0);
-        assert!(apply_params_line(&format!("P 1 0 1.0 -1.0{}", " 1:0.25".repeat(27)), &b));
+        assert!(apply_params_line(&format!("P 1 0 1.0 -1.0{}", " 1:0.25".repeat(31)), &b));
         assert_eq!(b.module(23), (true, 0.25));
         let m = MeterSnapshot { in_peak_db: -3.0, out_peak_db: -1.0, gr_db: 2.5, lufs_short: -11.0, true_peak_db: -1.0, frames: 0 };
         let r = decode_meters(&encode_meters(&m, 48000.0, 4096)).unwrap();

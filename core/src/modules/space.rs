@@ -3,16 +3,17 @@
 //! Wyjście: L′ = L + Δ, R′ = R − Δ, więc suma mono L′ + R′ jest DOKŁADNIE taka jak na wejściu (kompatybilność mono),
 //! a przy a = 0 Δ ≡ 0 (moduł przezroczysty).
 //!
-//! Δ = q·[ (k−1)·S_h + g_o·(S_h[n−τ1] − 0,7·S_h[n−τ2]) + g_d·V(M_h) ]
+//! Δ = q·[ (k−1)·S_h + g_o·(S_h[n−τ1] − 0,7·S_h[n−τ2] + 0,55·S_h[n−τ3]) + g_d·V(M_h) ]
 //!  * S_h, M_h – bok i środek powyżej 180 Hz (bas zostaje w środku), M_h dodatkowo LP 9 kHz,
-//!  * (k−1)·S_h – mocniejszy bok: k = 1 + 1,1a (do +6,4 dB),
-//!  * wczesne odbicia boku (τ1 = 13 ms, τ2 = 23 ms) – głębia pomieszczenia: g_o = 0,35a,
+//!  * (k−1)·S_h – mocniejszy bok: k = 1 + 1,3a (do +7,2 dB),
+//!  * wczesne odbicia boku (13, 23 i 31 ms) – głębia pomieszczenia: g_o = 0,6a,
 //!  * V – dekorelacja środka rzadkim filtrem „velvet noise” (24 impulsy ±1 w 2…32 ms z zanikiem, energia 1):
-//!    nawet nagranie mono dostaje przestrzeń, bez filtra grzebieniowego. g_d = 0,6a.
+//!    nawet nagranie mono dostaje przestrzeń, bez filtra grzebieniowego. g_d = 0,8a.
 //!    Źródła: Lauridsen/Schroeder (pseudostereo z sumą mono bez zmian), Alary, Politis & Välimäki 2017
 //!    (Velvet-noise decorrelator).
-//!  * q – straż: bok po obróbce (> 180 Hz) nie przekracza ok. poziomu środka (S′ ≤ M·(0,7 + 0,5a) w mocy); nagrania
-//!    już szerokie dostają najwyżej +2 dB boku. Środka nie ruszamy, więc wokal nie znika.
+//!  * q – straż: bok po obróbce (> 180 Hz) nie przekracza ok. poziomu środka (S′ ≤ M·(0,7 + 0,65a) w mocy); nagrania
+//!    już szerokie dostają najwyżej +2,8 dB boku. Środka nie ruszamy, więc wokal nie znika.
+//!    Wzmocnione 2026-11-25; dalej się nie da bez fałszywego „przeciwfazowego” brzmienia – od tego są Kaptur i Binauralny.
 //!
 //! Suwak działa coraz mocniej na całym zakresie; latencja 0.
 
@@ -28,6 +29,7 @@ const T0_MS: f64 = 2.0;
 const T1_MS: f64 = 32.0;
 const ECHO1_MS: f64 = 13.0;
 const ECHO2_MS: f64 = 23.0;
+const ECHO3_MS: f64 = 31.0;
 
 pub struct Space {
     ctx: Ctx,
@@ -43,6 +45,7 @@ pub struct Space {
     taps: [(usize, f64); TAPS],
     e1: usize,
     e2: usize,
+    e3: usize,
     e_m: f64,
     e_s: f64,
     a_e: f64,
@@ -69,6 +72,7 @@ impl Space {
             taps: [(0, 0.0); TAPS],
             e1: 0,
             e2: 0,
+            e3: 0,
             e_m: 0.0,
             e_s: 0.0,
             a_e: 0.0,
@@ -131,6 +135,7 @@ impl Module for Space {
         }
         self.e1 = (ECHO1_MS * 0.001 * fs).round() as usize;
         self.e2 = (ECHO2_MS * 0.001 * fs).round() as usize;
+        self.e3 = (ECHO3_MS * 0.001 * fs).round() as usize;
         self.e_m = 0.0;
         self.e_s = 0.0;
         let kfs = fs / CONTROL_BLOCK as f64;
@@ -169,11 +174,11 @@ impl Module for Space {
                 s.e_s = es;
                 s.warm = true;
             }
-            // straż: przewidywana energia boku ≤ max(M + 0,8 dB, S + 2 dB) przy pełnym suwaku (mniej przy niższym)
-            let (kb, go, gd) = (1.1 * a, 0.35 * a, 0.6 * a);
+            // straż: przewidywana energia boku ≤ max(M + 1,3 dB, S + 2,8 dB) przy pełnym suwaku (mniej przy niższym)
+            let (kb, go, gd) = (1.3 * a, 0.6 * a, 0.8 * a);
             // A·q² + B·q + E_s = cap  (bok główny dodaje się zgodnie w fazie, odbicia i dekorelacja – energetycznie)
-            let cap = (s.e_m * (0.7 + 0.5 * a)).max(s.e_s * (1.0 + 0.6 * a));
-            let aa = s.e_s * (kb * kb + 1.49 * go * go) + gd * gd * s.e_m;
+            let cap = (s.e_m * (0.7 + 0.65 * a)).max(s.e_s * (1.0 + 0.9 * a));
+            let aa = s.e_s * (kb * kb + 1.79 * go * go) + gd * gd * s.e_m;
             let bb = 2.0 * s.e_s * kb;
             let q = if aa + bb + s.e_s > cap {
                 let room = (cap - s.e_s).max(0.0);
@@ -192,7 +197,8 @@ impl Module for Space {
                         s.prev[1] + (tgt[1] - s.prev[1]) * t,
                         s.prev[2] + (tgt[2] - s.prev[2]) * t,
                     ];
-                    let echo = s.buf_s[p.wrapping_sub(s.e1) & s.mask] - 0.7 * s.buf_s[p.wrapping_sub(s.e2) & s.mask];
+                    let echo = s.buf_s[p.wrapping_sub(s.e1) & s.mask] - 0.7 * s.buf_s[p.wrapping_sub(s.e2) & s.mask]
+                        + 0.55 * s.buf_s[p.wrapping_sub(s.e3) & s.mask];
                     let mut v = 0.0;
                     for &(d, c) in s.taps.iter() {
                         v += c * s.buf_m[p.wrapping_sub(d) & s.mask];
@@ -292,6 +298,6 @@ mod tests {
         let (xl, xr) = (testkit::noise(n, 0.2, 11), testkit::noise(n, 0.2, 12)); // S = M
         let (l, r) = przetworz(1.0, &xl, &xr, fs);
         let d = sm(&l, &r, fs) - sm(&xl, &xr, fs);
-        assert!(d < 2.3, "bok rośnie o {d} dB");
+        assert!(d < 3.1, "bok rośnie o {d} dB");
     }
 }

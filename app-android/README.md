@@ -9,7 +9,7 @@ z klasy `pl.szklo.core.NativeEngine`.
 | Ścieżka | Zawartość |
 |---|---|
 | `app/src/main/java/pl/szklo/core/NativeEngine.kt` | most JNI (`System.loadLibrary("szklo_jni")`, `AutoCloseable`, blokada RW przy zamykaniu) |
-| `app/src/main/java/pl/szklo/model/` | katalog 25 modułów (kolejność = `core/src/catalog.rs`), grupy, presety (= `core/src/presets.rs`) |
+| `app/src/main/java/pl/szklo/model/` | katalog 29 modułów (kolejność = `core/src/catalog.rs`), grupy, presety (= `core/src/presets.rs`) |
 | `app/src/main/java/pl/szklo/audio/AudioHub.kt` | jedno źródło prawdy: parametry, stan odtwarzacza, sesje innych aplikacji, aktywny silnik |
 | `app/src/main/java/pl/szklo/audio/LocalPlayerService.kt`, `PcmPlayer.kt` | odtwarzanie pliku: MediaExtractor → MediaCodec → float → `NativeEngine.process` → AudioTrack float (częstotliwość z pliku) |
 | `app/src/main/java/pl/szklo/audio/GlobalEffectsService.kt`, `GlobalEffectsBridge.kt`, `DpMapping.kt`, `EffectSessionReceiver.kt` | tryb „inne aplikacje”: rozgłoszenia sesji efektów + `DynamicsProcessing` (API 28+) – **przybliżenie** naszych modułów |

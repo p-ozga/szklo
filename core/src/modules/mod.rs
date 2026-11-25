@@ -5,17 +5,22 @@ use crate::module::{Ctx, Module, CONTROL_BLOCK};
 pub mod agc;
 pub mod bass;
 pub mod bus_a;
+pub mod binaural;
 pub mod bus_b;
+pub mod crystal;
 pub mod declipper;
 pub mod dehummer;
 pub mod dequantizer;
 pub mod dynamics;
+pub mod hood;
+pub mod hrtf_kemar;
 pub mod noise_gate;
 pub mod output;
 pub mod phase_rotation;
 pub mod punch;
 pub mod radio_bass;
 pub mod space;
+pub mod treble;
 pub mod warm_bass;
 pub mod width;
 
@@ -32,6 +37,10 @@ pub fn create(id: ModuleId, ctx: Ctx) -> Box<dyn Module> {
         M::AutoEq | M::SpectrumBalance => Box::new(bus_b::BusB::new(ctx)),
         M::Width => Box::new(width::Width::new(ctx)),
         M::RadioBass => Box::new(radio_bass::RadioBass::new(ctx)),
+        M::Crystal => Box::new(crystal::Crystal::new(ctx)),
+        M::DynamicTreble => Box::new(treble::DynamicTreble::new(ctx)),
+        M::Binaural => Box::new(binaural::Binaural::new(ctx)),
+        M::Hood => Box::new(hood::Hood::new(ctx)),
         M::Space => Box::new(space::Space::new(ctx)),
         M::DeepBass => Box::new(bass::DeepBass::new(ctx)),
         M::BassBoost => Box::new(bass::BassBoost::new(ctx)),

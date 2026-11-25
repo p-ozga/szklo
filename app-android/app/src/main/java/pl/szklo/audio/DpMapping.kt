@@ -13,7 +13,7 @@ import pl.szklo.model.ModuleId
  * (szczegóły: spec/android_przetwarzanie_innych_aplikacji.md). Mapowanie poniżej jest wstępne:
  * liczby to punkty startowe do strojenia odsłuchem, nie wynik pomiarów.
  *
- * Przestrzeń i Szerokość: DynamicsProcessing nie ma M/S – zastępczo systemowy `Virtualizer` ([Targets.virtualizer]).
+ * Przestrzeń, Szerokość, Kaptur i Binauralny: DynamicsProcessing nie ma M/S ani splotu – zastępczo systemowy `Virtualizer` ([Targets.virtualizer]).
  * Moduły bez odpowiednika (brak wpływu w tym trybie): Declipper, Dekwantyzer, Rotacja fazy.
  *
  * Czysta funkcja (bez API Androida) – testowalna na JVM.
@@ -103,6 +103,14 @@ object DpMapping {
         pre[0] += 5f * a(ModuleId.RADIO_BASS)
         pre[1] += 2f * a(ModuleId.RADIO_BASS)
         pre[2] -= 1.5f * a(ModuleId.RADIO_BASS)
+        // Dynamiczna góra: bez toru bocznego – umiarkowane podbicie 6–20 kHz (rdzeń daje średnio +4…+6 dB).
+        pre[6] += 3.5f * a(ModuleId.DYNAMIC_TREBLE)
+        pre[7] += 5f * a(ModuleId.DYNAMIC_TREBLE)
+        // Kaptur: przyciemnienie góry i odrobina ciepła; odbić nie da się zrobić – przestrzeń z wirtualizera.
+        pre[2] += 1f * a(ModuleId.HOOD)
+        pre[5] -= 2f * a(ModuleId.HOOD)
+        pre[6] -= 4f * a(ModuleId.HOOD)
+        pre[7] -= 4.5f * a(ModuleId.HOOD)
         // Auto EQ: statyczne przybliżenie – mniej „buczenia”, więcej obecności.
         pre[2] -= 1f * a(ModuleId.AUTO_EQ)
         pre[4] += 1f * a(ModuleId.AUTO_EQ)
@@ -119,7 +127,8 @@ object DpMapping {
         val mb1 = a(ModuleId.MULTIBAND1)
         val mb2 = a(ModuleId.MULTIBAND2)
         val comp = a(ModuleId.COMPRESSOR)
-        val punch = a(ModuleId.PUNCH)
+        // Kryształ: jak Punch – wolniejszy atak przepuszcza uderzenia (wyostrzania w pasmach tu nie ma)
+        val punch = maxOf(a(ModuleId.PUNCH), 0.7f * a(ModuleId.CRYSTAL))
         val gate = a(ModuleId.NOISE_GATE)
         val nr = a(ModuleId.NOISE_REDUCTION)
 
@@ -183,7 +192,7 @@ object DpMapping {
             mbc = mbc,
             postEq = post,
             limiter = limiter,
-            virtualizer = (1000f * maxOf(a(ModuleId.SPACE), 0.5f * a(ModuleId.WIDTH))).toInt().coerceIn(0, 1000),
+            virtualizer = (1000f * maxOf(a(ModuleId.SPACE), a(ModuleId.BINAURAL), a(ModuleId.HOOD), 0.5f * a(ModuleId.WIDTH))).toInt().coerceIn(0, 1000),
         )
     }
 }

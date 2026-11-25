@@ -1,6 +1,6 @@
 # Szkło
 
-Domowy procesor dźwięku (PC + Android): 25 modułów (naprawa, dynamika, bas, barwa, stereo, wyjście), każdy z on/off i suwakiem
+Domowy procesor dźwięku (PC + Android): 29 modułów (naprawa, dynamika, bas, barwa, stereo, wyjście), każdy z on/off i suwakiem
 mocy 0–100%, sufit −1,0 dBTP pod słuchawki Bluetooth. Projekt filtrów: `spec/koncepcja_filtrow_v1.md`.
 
 Na odwrocie okna (PC) jest wbudowany odtwarzacz: pliki z dysku, playlista, zegar i analizator widma, Spotify (Premium)
@@ -14,6 +14,7 @@ odtwarzane wprost przez silnik Szkła oraz opcjonalnie wizualizacja MilkDrop 3 (
 | `app-pc/` | `Szklo.exe` – aplikacja (WebView2, odwracanie okna, zasobnik, silnik w aplikacji albo sterowanie wtyczką, odtwarzacz) |
 | `app-android/` | aplikacja Android (Jetpack Compose) + most JNI `app-android/rust` (w tym odbiornik Spotify Connect) |
 | `tools/vsthost/` | test dymny wtyczki bez Equalizer APO |
+| `tools/hrtf/` | generator tablic filtra „Binauralny” z pomiarów MIT KEMAR |
 | `tools/licencje/` | generator listy cudzych elementów i licencji (`THIRD_PARTY.md`) |
 | `third_party/` | dwie biblioteki z łatkami: `vst` 0.4.0 i `librespot-core` 0.8.0 (obie MIT) |
 | `spec/`, `docs/` | specyfikacje i instrukcje |
@@ -43,7 +44,9 @@ Firma Anthropic nie jest wydawcą Szkła, nie odpowiada za nie i go nie wspiera.
 
 ## Cudze elementy i znaki towarowe
 
-Szkło korzysta z bibliotek open source, czcionek Inter i Space Grotesk (SIL OFL 1.1) i współpracuje z Equalizer APO
+Szkło korzysta z bibliotek open source, czcionek Inter i Space Grotesk (SIL OFL 1.1),
+pomiarów HRTF manekina KEMAR (Bill Gardner i Keith Martin, MIT Media Lab, © 1994 MIT Media Laboratory) w filtrze
+„Binauralny” i współpracuje z Equalizer APO
 (Jonas Thedering, GPL-2.0 – osobny program). Pełna lista z autorami i licencjami: [THIRD_PARTY.md](THIRD_PARTY.md),
 w aplikacjach: odwrót → „O programie i licencje”.
 

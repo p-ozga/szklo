@@ -39,7 +39,7 @@ import pl.szklo.model.Presets
 import kotlin.math.roundToInt
 
 /**
- * Stan ekranu: 25 modułów, presety, moc ogólna, mierniki (10 Hz), wyjście audio, odtwarzacz, tryb
+ * Stan ekranu: 29 modułów, presety, moc ogólna, mierniki (10 Hz), wyjście audio, odtwarzacz, tryb
  * „inne aplikacje”. Parametry żyją w [AudioHub] (współdzielone z usługami); tu są widoki i akcje.
  */
 class SzkloViewModel(app: Application) : AndroidViewModel(app) {

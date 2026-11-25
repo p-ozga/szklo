@@ -48,6 +48,11 @@ impl Settings {
             .and_then(|t| serde_json::from_str(&t).ok())
             .unwrap_or_default();
         let d = Settings::default();
+        // ustawienia sprzed dodania modułów: dopisz brakujące (wyłączone), zachowaj resztę
+        while s.on.len() >= 23 && s.on.len() < MODULE_COUNT && s.amount.len() == s.on.len() {
+            s.on.push(false);
+            s.amount.push(0.5);
+        }
         if s.on.len() != MODULE_COUNT || s.amount.len() != MODULE_COUNT {
             s.on = d.on;
             s.amount = d.amount;

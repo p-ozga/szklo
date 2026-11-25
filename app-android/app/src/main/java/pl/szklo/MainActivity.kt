@@ -48,6 +48,7 @@ class MainActivity : ComponentActivity() {
     override fun onStop() {
         // Ustawienia na dysk od razu – zamknięcie aplikacji tuż po zmianie suwaka niczego nie gubi.
         AudioHub.flush()
+        Dziennik.zapiszJesliAutomatyczny()
         super.onStop()
     }
 

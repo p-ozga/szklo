@@ -22,6 +22,14 @@ pub fn wczytaj() -> Vec<Preset> {
     let lista: Vec<Preset> = std::fs::read_to_string(sciezka()).ok().and_then(|t| serde_json::from_str(&t).ok()).unwrap_or_default();
     lista
         .into_iter()
+        .map(|mut p| {
+            // preset sprzed dodania modułów: brakujące = wyłączone
+            while p.on.len() >= 23 && p.on.len() < MODULE_COUNT && p.amount.len() == p.on.len() {
+                p.on.push(false);
+                p.amount.push(0.5);
+            }
+            p
+        })
         .filter(|p| p.key.starts_with("u_") && !p.name.trim().is_empty() && p.on.len() == MODULE_COUNT && p.amount.len() == MODULE_COUNT)
         .map(|mut p| {
             for a in p.amount.iter_mut() {

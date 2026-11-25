@@ -38,6 +38,8 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.coerceIn
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import pl.szklo.model.ModuleGroup
@@ -83,6 +85,10 @@ fun FrontScreen(
 
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val rootHeightPx = constraints.maxHeight.toFloat()
+        // miejsce na pokrętło: ekran minus paski, panel i reszta kolumny (260 dp, na niskich ekranach mniej)
+        val insets = with(density) { (topInsetPx + bottomInsetPx).toDp() }
+        val dialSize = (maxHeight - insets - SzkloDims.PanelHeight - SzkloDims.TopColumnWithoutDial)
+            .coerceIn(SzkloDims.DialMinSize, SzkloDims.DialSize)
 
         Box(
             Modifier
@@ -100,6 +106,7 @@ fun FrontScreen(
         ) {
             GlowBackground(Modifier.fillMaxSize(), topInsetPx = topInsetPx, bottomInsetPx = bottomInsetPx)
             TopColumn(
+                dialSize = dialSize,
                 master = { masterState.value },
                 onMaster = vm::setMaster,
                 onMasterReset = vm::resetMasterToPreset,
@@ -143,6 +150,7 @@ fun FrontScreen(
 /** Kolumna górna: padding top 28 (od dołu paska stanu), boki 18, gap 10, wyśrodkowana. */
 @Composable
 private fun TopColumn(
+    dialSize: Dp,
     master: () -> Float,
     onMaster: (Float) -> Unit,
     onMasterReset: () -> Unit,
@@ -169,6 +177,7 @@ private fun TopColumn(
             onValueChange = onMaster,
             onResetToPreset = onMasterReset,
             modifier = Modifier.padding(top = SzkloDims.DialTopMargin),
+            dialSize = dialSize,
         )
         StatusLine(status)
         GroupChips(selected = group, onSelect = onGroup)

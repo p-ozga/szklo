@@ -1,6 +1,6 @@
 # Szkło
 
-Domowy procesor dźwięku (PC + Android): 23 moduły (naprawa, dynamika, bas, barwa, stereo, wyjście), każdy z on/off i suwakiem
+Domowy procesor dźwięku (PC + Android): 25 modułów (naprawa, dynamika, bas, barwa, stereo, wyjście), każdy z on/off i suwakiem
 mocy 0–100%, sufit −1,0 dBTP pod słuchawki Bluetooth. Projekt filtrów: `spec/koncepcja_filtrow_v1.md`.
 
 Na odwrocie okna (PC) jest wbudowany odtwarzacz: pliki z dysku, playlista, zegar i analizator widma, Spotify (Premium)
@@ -33,6 +33,13 @@ Instalacja w Equalizer APO: `docs/equalizer_apo.md`. Android: `app-android/READM
 Przyciski w lewym górnym rogu: zamknij (do zasobnika; całkowite wyjście – menu zasobnika → Zakończ), minimalizuj, maksymalizuj.
 O – odwróć okno · spacja (trzymaj) – porównaj z oryginałem · E – włącz/wyłącz · 1–4 – presety · Ctrl+W – schowaj do zasobnika.
 Suwaki: Shift = krok 10, Ctrl = krok 0,1, podwójny klik = wartość z presetu, strzałki ±1.
+
+## Autorstwo
+
+Twórcą programu jest **Claude** – model AI firmy Anthropic, pracujący w Claude Code: projekt filtrów, kod, testy, interfejs
+i dokumentacja. Rola człowieka ([p-ozga](https://github.com/p-ozga)) sprowadziła się do pomysłu.
+
+Firma Anthropic nie jest wydawcą Szkła, nie odpowiada za nie i go nie wspiera. „Claude” i „Anthropic” to znaki Anthropic PBC.
 
 ## Cudze elementy i znaki towarowe
 

@@ -14,8 +14,8 @@ android {
         applicationId = "pl.szklo"
         minSdk = 26
         targetSdk = 35
-        versionCode = 5
-        versionName = "0.2.3"
+        versionCode = 7
+        versionName = "0.3.1"
         // Bez abiFilters: pakujemy to, co cargo-ndk położy w src/main/jniLibs
         // (domyślnie arm64-v8a i armeabi-v7a; opcjonalnie x86_64 dla emulatora – README).
     }

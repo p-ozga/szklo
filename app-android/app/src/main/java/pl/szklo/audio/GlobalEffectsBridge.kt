@@ -1,6 +1,7 @@
 package pl.szklo.audio
 
 import android.media.audiofx.DynamicsProcessing
+import android.media.audiofx.Virtualizer
 import android.os.Build
 import android.util.Log
 import androidx.annotation.MainThread
@@ -28,6 +29,9 @@ import pl.szklo.model.EngineParams
 class GlobalEffectsBridge {
 
     private val effects = HashMap<Int, DynamicsProcessing>()
+    /** Systemowy wirtualizer (Przestrzeń/Szerokość) – tworzony dopiero, gdy potrzebny; nie każde urządzenie go ma. */
+    private val virtualizers = HashMap<Int, Virtualizer>()
+    private val virtualizerFailed = HashSet<Int>()
     private var lastParams: EngineParams? = null
     private var lastTargets: DpMapping.Targets? = null
 
@@ -53,7 +57,7 @@ class GlobalEffectsBridge {
         lastTargets = t
         val broken = ArrayList<Int>()
         for ((id, dp) in effects) {
-            if (!applyTo(dp, t)) broken += id
+            if (!applyTo(dp, t)) broken += id else applyVirtualizer(id, t)
         }
         broken.forEach { detach(it) }
     }
@@ -68,7 +72,7 @@ class GlobalEffectsBridge {
         return try {
             val dp = DynamicsProcessing(PRIORITY, sessionId, buildConfig())
             effects[sessionId] = dp
-            lastParams?.let { applyTo(dp, DpMapping.compute(it)) }
+            lastParams?.let { p -> DpMapping.compute(p).let { applyTo(dp, it); applyVirtualizer(sessionId, it) } }
             Log.i(TAG, "Podpięto DynamicsProcessing do sesji $sessionId (kontrola: ${dp.hasControl()})")
             null
         } catch (e: RuntimeException) {
@@ -79,7 +83,29 @@ class GlobalEffectsBridge {
         }
     }
 
+    /** Błąd wirtualizera nie psuje reszty efektów – zapis w dzienniku i dalej bez niego. */
+    private fun applyVirtualizer(id: Int, t: DpMapping.Targets) {
+        val strength = if (t.enabled) t.virtualizer else 0
+        if (id in virtualizerFailed || (strength == 0 && id !in virtualizers)) return
+        try {
+            val v = virtualizers.getOrPut(id) {
+                Virtualizer(PRIORITY, id).also { Log.i(TAG, "Wirtualizer na sesji $id (regulacja siły: ${it.strengthSupported})") }
+            }
+            if (strength > 0) v.setStrength(strength.toShort())
+            v.setEnabled(strength > 0)
+        } catch (e: RuntimeException) {
+            Log.w(TAG, "Wirtualizer niedostępny na sesji $id", e)
+            virtualizerFailed += id
+            virtualizers.remove(id)?.let { runCatching { it.release() } }
+        }
+    }
+
     private fun detach(sessionId: Int) {
+        virtualizerFailed -= sessionId
+        virtualizers.remove(sessionId)?.let { v ->
+            runCatching { v.setEnabled(false) }
+            runCatching { v.release() }
+        }
         effects.remove(sessionId)?.let { dp ->
             runCatching { dp.setEnabled(false) }
             runCatching { dp.release() }

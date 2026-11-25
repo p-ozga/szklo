@@ -12,7 +12,7 @@ use crate::catalog::{ModuleId, MODULE_COUNT};
 use crate::module::{Ctx, Module, OutputCtx, MAX_BLOCK};
 
 /// Kolejność jednostek w torze (spec v1 §2.1). Szyny STFT obsługują po dwie pozycje UI.
-pub const CHAIN_ORDER: [ModuleId; 21] = [
+pub const CHAIN_ORDER: [ModuleId; 23] = [
     ModuleId::Declipper,
     ModuleId::Dequantizer,
     ModuleId::Dehummer,
@@ -21,9 +21,11 @@ pub const CHAIN_ORDER: [ModuleId; 21] = [
     ModuleId::Agc,
     ModuleId::AutoEq, // szyna B: Auto EQ + Balans widma
     ModuleId::Width,
+    ModuleId::Space,
     ModuleId::DeepBass,
     ModuleId::BassBoost,
     ModuleId::WarmBass,
+    ModuleId::RadioBass,
     ModuleId::HarmonicBass,
     ModuleId::Multiband2,
     ModuleId::Compressor,

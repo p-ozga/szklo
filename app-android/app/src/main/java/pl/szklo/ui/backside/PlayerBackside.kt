@@ -37,10 +37,15 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import pl.szklo.Dziennik
 import pl.szklo.core.NativeEngine
 import pl.szklo.audio.AudioHub
 import pl.szklo.audio.SpotifyConnectService
@@ -96,7 +101,41 @@ fun PlayerBackside(
             SpotifyConnectCard(coreAvailable)
             ExternalPlayersCard(controls)
             LocalPlayerCard(player, coreAvailable, local)
+            DziennikCard()
             LicensesCard()
+        }
+    }
+}
+
+/** Zapis dziennika aplikacji do folderu Dokumenty (dostępny w menedżerze plików i przez USB). */
+@Composable
+private fun DziennikCard() {
+    var auto by remember { mutableStateOf(Dziennik.automatyczny) }
+    var komunikat by remember { mutableStateOf("") }
+    val scope = rememberCoroutineScope()
+    GlassCard {
+        Text("Dziennik aplikacji", style = SzkloType.CardTitle)
+        Text(
+            if (Dziennik.dostepny) {
+                "Zapisuje zdarzenia i błędy do folderu ${Dziennik.FOLDER} (pliki szklo-data.txt). " +
+                    "Nazwa konta Spotify jest zamazana. Nic nie jest wysyłane."
+            } else {
+                "Zapis do Dokumentów wymaga Androida 10."
+            },
+            style = SzkloType.BodySecondary,
+        )
+        if (Dziennik.dostepny) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                PillButton(
+                    if (auto) "Zapis automatyczny: wł." else "Zapis automatyczny: wył.",
+                    onClick = { auto = !auto; Dziennik.automatyczny = auto },
+                    primary = auto,
+                )
+                PillButton("Zapisz teraz", onClick = {
+                    scope.launch { komunikat = withContext(Dispatchers.IO) { Dziennik.zapiszTeraz() } }
+                }, primary = false)
+            }
+            if (komunikat.isNotEmpty()) Text(komunikat, style = SzkloType.BodySecondary)
         }
     }
 }

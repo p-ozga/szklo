@@ -13,7 +13,8 @@ import pl.szklo.model.ModuleId
  * (szczegóły: spec/android_przetwarzanie_innych_aplikacji.md). Mapowanie poniżej jest wstępne:
  * liczby to punkty startowe do strojenia odsłuchem, nie wynik pomiarów.
  *
- * Moduły bez odpowiednika (brak wpływu w tym trybie): Declipper, Dekwantyzer, Szerokość, Rotacja fazy.
+ * Przestrzeń i Szerokość: DynamicsProcessing nie ma M/S – zastępczo systemowy `Virtualizer` ([Targets.virtualizer]).
+ * Moduły bez odpowiednika (brak wpływu w tym trybie): Declipper, Dekwantyzer, Rotacja fazy.
  *
  * Czysta funkcja (bez API Androida) – testowalna na JVM.
  */
@@ -56,12 +57,14 @@ object DpMapping {
         val mbc: List<Mbc>,
         val postEq: FloatArray,
         val limiter: Limiter,
+        /** Siła systemowego wirtualizera 0..1000 (0 = wyłączony). */
+        val virtualizer: Int,
     ) {
         // FloatArray nie ma równości strukturalnej – porównujemy zawartość (unikamy zbędnych wywołań do audioserwera).
         override fun equals(other: Any?): Boolean = other is Targets &&
             enabled == other.enabled && inputGainDb == other.inputGainDb &&
             preEq.contentEquals(other.preEq) && mbc == other.mbc &&
-            postEq.contentEquals(other.postEq) && limiter == other.limiter
+            postEq.contentEquals(other.postEq) && limiter == other.limiter && virtualizer == other.virtualizer
 
         override fun hashCode(): Int {
             var h = enabled.hashCode()
@@ -70,6 +73,7 @@ object DpMapping {
             h = 31 * h + mbc.hashCode()
             h = 31 * h + postEq.contentHashCode()
             h = 31 * h + limiter.hashCode()
+            h = 31 * h + virtualizer
             return h
         }
     }
@@ -90,9 +94,15 @@ object DpMapping {
         pre[2] += 1.5f * a(ModuleId.BASS_BOOST)
         // Ciepły bas: nasycenia nie da się zrobić EQ – zastępczo wyraźne podbicie dołu i dolnego środka (ciepło),
         // z lekkim ujęciem 2,5–6 kHz (miękkość). Wzmocnione 2026-11-22: w Spotify różnica była niesłyszalna.
-        pre[1] += 3f * a(ModuleId.WARM_BASS)
-        pre[2] += 2f * a(ModuleId.WARM_BASS)
+        // 2026-11-24: jeszcze mocniej – jak rdzeń v3 (≈ +3 / +6 / +5 dB przy pełnym suwaku).
+        pre[0] += 3f * a(ModuleId.WARM_BASS)
+        pre[1] += 5.5f * a(ModuleId.WARM_BASS)
+        pre[2] += 3.5f * a(ModuleId.WARM_BASS)
         pre[4] -= 1f * a(ModuleId.WARM_BASS)
+        // Radiowy bas: głęboki dół w górę, dudnienie (150–400 Hz) lekko w dół; gęstość – w kompresorze pasma basu (MBC).
+        pre[0] += 5f * a(ModuleId.RADIO_BASS)
+        pre[1] += 2f * a(ModuleId.RADIO_BASS)
+        pre[2] -= 1.5f * a(ModuleId.RADIO_BASS)
         // Auto EQ: statyczne przybliżenie – mniej „buczenia”, więcej obecności.
         pre[2] -= 1f * a(ModuleId.AUTO_EQ)
         pre[4] += 1f * a(ModuleId.AUTO_EQ)
@@ -122,8 +132,11 @@ object DpMapping {
         // Częściowa kompensacja wzmocnienia (połowa redukcji przy progu).
         // Kompensacja wzmocnienia ~80 % redukcji przy progu – głośniej i gęściej (jak rdzeń z AGC i clipperem).
         val makeup = if (ratio > 1.001f) ((-threshold) * (1f - 1f / ratio) * 0.8f).coerceIn(0f, 12f) else 0f
+        val radio = a(ModuleId.RADIO_BASS)
         val mbc = MBC_CUTOFFS.indices.map { band ->
             val isHigh = band == MBC_CUTOFFS.lastIndex
+            // Radiowy bas: pasmo < 150 Hz gęściej (niższy próg, wyższe ratio) z wyrównaniem głośności
+            val dense = if (band == 0) radio else 0f
             val gateDb = maxOf(
                 if (gate > 0f) -90f + 30f * gate else -90f,
                 if (isHigh && nr > 0f) -80f + 25f * nr else -90f,
@@ -132,13 +145,13 @@ object DpMapping {
             Mbc(
                 attackMs = attack,
                 releaseMs = release,
-                ratio = ratio,
-                thresholdDb = threshold,
-                kneeDb = 6f,
+                ratio = (ratio + 2f * dense).coerceIn(1f, 10f),
+                thresholdDb = (threshold - 10f * dense).coerceIn(-40f, 0f),
+                kneeDb = 6f + 4f * dense,
                 noiseGateDb = gateDb,
                 expanderRatio = expRatio,
                 preGainDb = 0f,
-                postGainDb = makeup,
+                postGainDb = (makeup + 3f * dense).coerceAtMost(12f),
             )
         }
 
@@ -170,6 +183,7 @@ object DpMapping {
             mbc = mbc,
             postEq = post,
             limiter = limiter,
+            virtualizer = (1000f * maxOf(a(ModuleId.SPACE), 0.5f * a(ModuleId.WIDTH))).toInt().coerceIn(0, 1000),
         )
     }
 }

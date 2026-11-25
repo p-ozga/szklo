@@ -5,11 +5,15 @@
 //! ze wszystkimi, wysyła stan do każdego, a mierniki bierze z tego, który faktycznie przetwarza dźwięk (rosnące
 //! `frames`). Wcześniej jeden potok o stałej nazwie mogła zająć bezczynna instancja (np. stara wersja DLL).
 //!
-//! GUI → wtyczka:  `P <enabled> <compare> <master> <ceiling> <on>:<amount> ×23`
+//! GUI → wtyczka:  `P <enabled> <compare> <master> <ceiling> <on>:<amount> ×25`
+//! (starsze, krótsze linie są przyjmowane: brakujące moduły = wyłączone; nadmiarowe pozycje są pomijane)
 //! wtyczka → GUI:  `M <in_db> <out_db> <gr_db> <lufs> <tp_db> <fs> <latency> [<frames>]`
 
 use crate::catalog::MODULE_COUNT;
 use crate::shared::{MeterSnapshot, SharedParams};
+
+/// Najmniejsza przyjmowana liczba modułów w linii `P` (wersje do 0.3.0).
+const MIN_MODULES: usize = 23;
 
 /// Nazwa potoku starego typu (jeden na system) – aplikacja nadal ją obsługuje.
 pub const PIPE_NAME: &str = r"\\.\pipe\szklo-ctl";
@@ -41,7 +45,8 @@ pub fn apply_params_line(line: &str, p: &SharedParams) -> bool {
         return false;
     }
     let vals: Vec<&str> = it.collect();
-    if vals.len() != 4 + MODULE_COUNT {
+    // zgodność wersji: linia/chunk sprzed dodania modułów (od 23 pozycji) i z nowszej aplikacji (więcej pozycji)
+    if vals.len() < 4 + MIN_MODULES {
         return false;
     }
     let (Ok(en), Ok(cmp), Ok(master), Ok(ceil)) =
@@ -49,8 +54,8 @@ pub fn apply_params_line(line: &str, p: &SharedParams) -> bool {
     else {
         return false;
     };
-    let mut mods = [(false, 0f32); MODULE_COUNT];
-    for (i, v) in vals[4..].iter().enumerate() {
+    let mut mods = [(false, 0.5f32); MODULE_COUNT];
+    for (i, v) in vals[4..].iter().take(MODULE_COUNT).enumerate() {
         let Some((o, a)) = v.split_once(':') else { return false };
         let (Ok(o), Ok(a)) = (o.parse::<u8>(), a.parse::<f32>()) else { return false };
         mods[i] = (o != 0, a);
@@ -117,6 +122,13 @@ mod tests {
         assert!((b.master() - 0.7).abs() < 1e-4);
         assert!((b.ceiling_dbtp() + 1.5).abs() < 1e-4);
         assert!(!apply_params_line("P 1 0", &b));
+        // linia starszej wersji (23 moduły) – ostatni moduł wyłączony; linia nowszej (27) – nadmiar pominięty
+        let stara: String = format!("P 1 0 1.0 -1.0{}", " 1:0.5".repeat(23));
+        assert!(apply_params_line(&stara, &b));
+        assert_eq!(b.module(22), (true, 0.5));
+        assert!(!b.module(23).0);
+        assert!(apply_params_line(&format!("P 1 0 1.0 -1.0{}", " 1:0.25".repeat(27)), &b));
+        assert_eq!(b.module(23), (true, 0.25));
         let m = MeterSnapshot { in_peak_db: -3.0, out_peak_db: -1.0, gr_db: 2.5, lufs_short: -11.0, true_peak_db: -1.0, frames: 0 };
         let r = decode_meters(&encode_meters(&m, 48000.0, 4096)).unwrap();
         assert_eq!(r.fs, 48000);

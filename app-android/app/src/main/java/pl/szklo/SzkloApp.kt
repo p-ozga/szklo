@@ -9,6 +9,7 @@ class SzkloApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        Dziennik.start(this)
         AudioHub.init(this)
         createChannels()
     }

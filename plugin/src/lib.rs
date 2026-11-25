@@ -1,6 +1,6 @@
 //! Szkło – wtyczka VST 2.4 (Equalizer APO hostuje tylko VST2).
 //!
-//! Parametry hosta: 23 × (on/off, moc) + globalnie „Włączone” + sufit dBTP = 48 parametrów.
+//! Parametry hosta: 25 × (on/off, moc) + globalnie „Włączone” + sufit dBTP = 52 parametrów.
 //! Stan zapisywany w chunku (tekst linii protokołu IPC) – Equalizer APO trzyma go w config.txt.
 //! Sterowanie na żywo z aplikacji Szkło: serwer named pipe (tylko w procesie audiodg.exe – instancja
 //! w edytorze konfiguracji Equalizer APO nie przetwarza dźwięku systemu, więc nie zajmuje potoku).

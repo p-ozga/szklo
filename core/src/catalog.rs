@@ -27,9 +27,13 @@ pub enum ModuleId {
     PreLimiter,
     SimpleClipper,
     HardLimit,
+    /// dodany 2026-11-24 – na końcu, żeby indeksy zapisanych ustawień się nie przesunęły
+    Space,
+    /// dodany 2026-11-24
+    RadioBass,
 }
 
-pub const MODULE_COUNT: usize = 23;
+pub const MODULE_COUNT: usize = 25;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Group {
@@ -89,6 +93,8 @@ pub const MODULES: [ModuleInfo; MODULE_COUNT] = [
     ModuleInfo { id: ModuleId::PreLimiter, name_pl: "Pre-limiter", key: "pre_limiter", group: Group::Wyjscie },
     ModuleInfo { id: ModuleId::SimpleClipper, name_pl: "Prosty clipper", key: "simple_clipper", group: Group::Wyjscie },
     ModuleInfo { id: ModuleId::HardLimit, name_pl: "Hard Limit", key: "hard_limit", group: Group::Wyjscie },
+    ModuleInfo { id: ModuleId::Space, name_pl: "Przestrzeń", key: "space", group: Group::Stereo },
+    ModuleInfo { id: ModuleId::RadioBass, name_pl: "Radiowy bas", key: "radio_bass", group: Group::Bas },
 ];
 
 impl ModuleId {

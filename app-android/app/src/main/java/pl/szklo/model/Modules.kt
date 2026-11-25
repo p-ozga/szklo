@@ -13,7 +13,7 @@ enum class ModuleGroup(val label: String) {
 }
 
 /**
- * Katalog 23 modułów – DOKŁADNIE w kolejności `core/src/catalog.rs` (`ModuleId` / `MODULES`).
+ * Katalog 25 modułów – DOKŁADNIE w kolejności `core/src/catalog.rs` (`ModuleId` / `MODULES`).
  * `ordinal` = indeks przekazywany do `NativeEngine.setModule`. Nie zmieniać kolejności bez zmiany w Rust.
  * Nazwy w UI – sekcja 11.4 scenariusza (własne nazwy, bez nazw własnych wzorca).
  */
@@ -40,12 +40,14 @@ enum class ModuleId(val key: String, val label: String, val group: ModuleGroup) 
     CLIPPER_HD("clipper_hd", "Clipper HD", ModuleGroup.WYJSCIE),
     PRE_LIMITER("pre_limiter", "Pre-limiter", ModuleGroup.WYJSCIE),
     SIMPLE_CLIPPER("simple_clipper", "Prosty clipper", ModuleGroup.WYJSCIE),
-    HARD_LIMIT("hard_limit", "Hard Limit", ModuleGroup.WYJSCIE);
+    HARD_LIMIT("hard_limit", "Hard Limit", ModuleGroup.WYJSCIE),
+    SPACE("space", "Przestrzeń", ModuleGroup.STEREO),
+    RADIO_BASS("radio_bass", "Radiowy bas", ModuleGroup.BAS);
 
     val index: Int get() = ordinal
 
     companion object {
-        const val COUNT = 23
+        const val COUNT = 25
 
         /** Moduły pogrupowane, w kolejności katalogu. */
         val byGroup: Map<ModuleGroup, List<ModuleId>> = entries.groupBy { it.group }

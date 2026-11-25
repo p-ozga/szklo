@@ -14,6 +14,8 @@ pub mod noise_gate;
 pub mod output;
 pub mod phase_rotation;
 pub mod punch;
+pub mod radio_bass;
+pub mod space;
 pub mod warm_bass;
 pub mod width;
 
@@ -29,6 +31,8 @@ pub fn create(id: ModuleId, ctx: Ctx) -> Box<dyn Module> {
         M::WarmBass => Box::new(warm_bass::WarmBass::new(ctx)),
         M::AutoEq | M::SpectrumBalance => Box::new(bus_b::BusB::new(ctx)),
         M::Width => Box::new(width::Width::new(ctx)),
+        M::RadioBass => Box::new(radio_bass::RadioBass::new(ctx)),
+        M::Space => Box::new(space::Space::new(ctx)),
         M::DeepBass => Box::new(bass::DeepBass::new(ctx)),
         M::BassBoost => Box::new(bass::BassBoost::new(ctx)),
         M::HarmonicBass => Box::new(bass::HarmonicBass::new(ctx)),

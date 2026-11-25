@@ -65,7 +65,7 @@ class DialMathTest {
 
     @Test
     fun presetsMatchRustCatalog() {
-        assertEquals(23, ModuleId.entries.size)
+        assertEquals(25, ModuleId.entries.size)
         assertEquals("hard_limit", ModuleId.entries[22].key)
         assertEquals(listOf("codzienny", "tramwaj", "stare", "noc"), Presets.all.map { it.key })
         // Porównanie z core/src/presets.rs (źródło prawdy) – wszystkie presety i moduły.

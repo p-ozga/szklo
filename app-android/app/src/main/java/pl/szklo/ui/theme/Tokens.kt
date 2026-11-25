@@ -53,6 +53,8 @@ object SzkloDims {
     val ColumnGap = 10.dp
 
     val DialSize = 260.dp
+    /** Najmniejsze pokrętło na niskich ekranach (dwa rzędy chipów muszą się zmieścić nad panelem). */
+    val DialMinSize = 120.dp
     val DialTopMargin = 8.dp
     val DialTrackRadius = 110.dp
     val DialStroke = 14.dp
@@ -60,9 +62,12 @@ object SzkloDims {
 
     val ChipMinHeight = 40.dp
     val ChipPadV = 9.dp
-    val ChipPadH = 14.dp
+    const val CHIPS_PER_ROW = 3
     val ChipGap = 8.dp
     val ChipsTopMargin = 4.dp
+
+    /** Kolumna górna bez pokrętła: marginesy, nagłówek, linia stanu, dwa rzędy chipów, odstęp nad panelem. */
+    val TopColumnWithoutDial = 226.dp
 
     val PanelHeight = 356.dp
     val PanelRadius = 28.dp

@@ -41,7 +41,7 @@ fn main() -> ExitCode {
     inst.init();
     let info = inst.get_info();
     println!("wtyczka: {} ({}), parametrów {}, wejść {}, wyjść {}, chunki {}", info.name, info.vendor, info.parameters, info.inputs, info.outputs, info.preset_chunks);
-    if info.parameters != 48 || info.inputs != 2 || info.outputs != 2 {
+    if info.parameters as usize != szklo_core::MODULE_COUNT * 2 + 2 || info.inputs != 2 || info.outputs != 2 {
         return fail("zła liczba parametrów / kanałów");
     }
 

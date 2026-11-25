@@ -29,6 +29,7 @@ import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.progressBarRangeInfo
 import androidx.compose.ui.semantics.setProgress
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import pl.szklo.ui.theme.SzkloColors
 import pl.szklo.ui.theme.SzkloDims
@@ -56,7 +57,10 @@ fun PowerDial(
     onValueChange: (Float) -> Unit,
     onResetToPreset: () -> Unit,
     modifier: Modifier = Modifier,
+    dialSize: Dp = SzkloDims.DialSize,
 ) {
+    // na niskich ekranach całe pokrętło (łuk, tarcza, liczba) zmniejsza się proporcjonalnie
+    val k = dialSize / SzkloDims.DialSize
     val view = LocalView.current
     val current = value().coerceIn(0f, 1f)
     val percent = (current * 100f).roundToInt()
@@ -78,7 +82,7 @@ fun PowerDial(
 
     Box(
         modifier = modifier
-            .size(SzkloDims.DialSize)
+            .size(dialSize)
             .clearAndSetSemantics {
                 contentDescription = "Pokrętło mocy ogólnej"
                 stateDescription = "$percent%"
@@ -129,8 +133,8 @@ fun PowerDial(
                 )
             }
             .drawBehind {
-                val stroke = SzkloDims.DialStroke.toPx()
-                val r = SzkloDims.DialTrackRadius.toPx()
+                val stroke = SzkloDims.DialStroke.toPx() * k
+                val r = SzkloDims.DialTrackRadius.toPx() * k
                 val c = center
                 val topLeft = Offset(c.x - r, c.y - r)
                 val arc = Size(2 * r, 2 * r)
@@ -144,7 +148,7 @@ fun PowerDial(
                     val a = Math.toRadians(DialMath.START_DEG.toDouble())
                     drawCircle(SzkloColors.Accent, stroke / 2f, Offset(c.x + r * cos(a).toFloat(), c.y + r * sin(a).toFloat()))
                 }
-                val face = SzkloDims.DialFaceRadius.toPx()
+                val face = SzkloDims.DialFaceRadius.toPx() * k
                 drawCircle(faceFill, face, c)
                 drawCircle(faceStroke, face, c, style = Stroke(width = 1.dp.toPx()))
             },
@@ -154,7 +158,7 @@ fun PowerDial(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
-            Text("$percent%", style = SzkloType.DialValue)
+            Text("$percent%", style = SzkloType.DialValue.copy(fontSize = SzkloType.DialValue.fontSize * k))
             Text("moc ogólna", style = SzkloType.DialCaption)
         }
     }

@@ -31,6 +31,14 @@ class ParamsCodecTest {
     }
 
     @Test
+    fun settingsFromOlderVersionKeepValuesAndDisableNewModules() {
+        val old = ParamsCodec.encodeModules(Presets.default.modules.take(23))
+        val decoded = ParamsCodec.decodeModules(old)
+        assertEquals(Presets.default.modules.take(23), decoded?.take(23))
+        assertEquals(ModuleState(false, 0.5f), decoded?.get(23))
+    }
+
+    @Test
     fun matchesDetectsChanges() {
         val p = Presets.default
         val params = EngineParams.fromPreset(p)

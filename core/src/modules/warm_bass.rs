@@ -6,20 +6,26 @@
 //! 1. **Nasycenie parzystymi harmonicznymi („lampowe”)** na sygnale znormalizowanym GŁADKIM poziomem RMS basu
 //!    (τ 60 ms, sprzężone stereo), więc działa jednakowo przy każdej głośności, a poziom normalizacji nie faluje
 //!    w rytmie pojedynczych okresów basu:
-//!       u = b/(√2·rms + 1e−4),  y(u) = (tanh(d(u + β)) − tanh(dβ)) / (d·sech²(dβ)),  β = 0,25
+//!       u = b/(√2·rms + 1e−4),  y(u) = (tanh(d(u + β)) − tanh(dβ)) / (d·sech²(dβ)),  β = 0,30
 //!    (nachylenie 1 w zerze; asymetria → 2. harmoniczna, zaokrąglenie szczytów → „miękkość”).
 //!    Δ_sat = w·HP25·LP500(√2·rms·y(u) − b) – tylko niskie harmoniczne (ciepło, nie „brzęczenie”), bez DC.
 //!    Źródła: modele nasycenia lampowego/taśmowego (asymetryczna nieliniowość → parzyste harmoniczne),
 //!    np. Pakarinen & Yeh 2009, Zölzer „DAFX” (nieliniowości).
 //! 2. **Zaokrąglenie ataków basu** – bardzo łagodna, wolna kompresja RMS pasma basu (atak 40 ms, zwolnienie 500 ms,
-//!    kolano 10 dB, ratio ≤ 1,6), bez pompowania. Δ_comp = b·(g − 1).
-//! 3. **Ciepło barwy** – dzwon 160 Hz, Q 0,8, +1,5·a dB (przy 0 dB dzwon SVF jest dokładnie przezroczysty).
+//!    kolano 10 dB, ratio ≤ 1,6), bez pompowania. Δ_comp = b·(g − 1). Wyrównanie = średnia redukcja z ~4 s,
+//!    więc średni poziom basu się NIE obniża (v2 ściszała 30–60 Hz o 1,9 dB).
+//! 3. **Pełnia i ciepło** – dwa szerokie dzwony: 70 Hz (Q 0,6) i 170 Hz (Q 0,7), zależnie od utworu: gdy bas dominuje
+//!    (udział pasma < 150 Hz, średnia z 3 s) – mniej, gdy go brakuje – więcej.
+//!    Przy 0 dB dzwon SVF jest dokładnie przezroczysty.
 //!
 //! Zmiana 2026-11-22 po odsłuchu („tonacja się nie zmienia, bas szarpany”): usunięty dzielnik subharmoniczny
 //! (przy realnych liniach basu przełączał się nieregularnie – buczenie niezgodne z melodią) i szybka obwiednia
 //! szczytowa (8/120 ms – falowała w rytmie basu i modulowała nasycenie).
 //!
-//! Suwak: w = 0,8a, d = 1 + 2a, ratio = 1 + 0,6a, dzwon 1,5a dB.
+//! Zmiana 2026-11-24 („działa, jakby nie mógł”): pomiar v2 na 8 utworach przy a = 1: −1,9 / +1,3 / +2,4 dB
+//! (30–60 / 60–120 / 120–250 Hz). v3: wyrównanie kompresji, dzwony zależne od udziału basu, nieco mocniejsze nasycenie.
+//!
+//! Suwak: w = a, d = 1 + 2a, ratio = 1 + 0,6a, dzwony a·(3…5,5) dB @ 70 Hz i a·(2,5…4) dB @ 170 Hz.
 
 use super::und;
 use crate::catalog::ModuleId;
@@ -28,12 +34,17 @@ use crate::dsp::util::{tau_coeff, Smoother};
 use crate::module::{Ctx, Module, CONTROL_BLOCK};
 use std::f64::consts::{FRAC_1_SQRT_2, SQRT_2};
 
-const BETA: f64 = 0.25;
+const BETA: f64 = 0.30;
+const F_LOW: f64 = 70.0;
+const Q_LOW: f64 = 0.6;
+const F_WARM: f64 = 170.0;
+const Q_WARM: f64 = 0.7;
 
 struct Chan {
     lp: [Svf; 2],
     sat_hp: Svf,
     sat_lp: Svf,
+    low: Svf,
     bell: Svf,
 }
 
@@ -44,8 +55,13 @@ impl Chan {
             lp: [lp, lp],
             sat_hp: Svf::new(SvfCoeffs::new(fs, 25.0, FRAC_1_SQRT_2, Mode::Highpass)),
             sat_lp: Svf::new(SvfCoeffs::new(fs, 500.0, FRAC_1_SQRT_2, Mode::Lowpass)),
-            bell: Svf::new(SvfCoeffs::new(fs, 160.0, 0.8, Mode::Bell(0.0))),
+            low: Svf::new(SvfCoeffs::new(fs, F_LOW, Q_LOW, Mode::Bell(0.0))),
+            bell: Svf::new(SvfCoeffs::new(fs, F_WARM, Q_WARM, Mode::Bell(0.0))),
         }
+    }
+    fn set_bells(&mut self, fs: f64, g_low: f64, g_warm: f64) {
+        self.low.c = SvfCoeffs::new(fs, F_LOW, Q_LOW, Mode::Bell(g_low));
+        self.bell.c = SvfCoeffs::new(fs, F_WARM, Q_WARM, Mode::Bell(g_warm));
     }
     #[inline]
     fn band(&mut self, x: f64) -> f64 {
@@ -58,6 +74,7 @@ impl Chan {
         }
         self.sat_hp.flush_denormals();
         self.sat_lp.flush_denormals();
+        self.low.flush_denormals();
         self.bell.flush_denormals();
     }
 }
@@ -72,7 +89,16 @@ pub struct WarmBass {
     // kompresja pasma (na blok sterujący)
     ms: f64,
     a_ms: f64,
+    /// „nadmiar” ponad próg (dB, bez nachylenia suwaka) i jego wolna średnia (wyrównanie poziomu)
     gr: f64,
+    gr_avg: f64,
+    a_avg: f64,
+    /// moce do udziału basu (3 s): pasmo < 150 Hz i całość
+    p_lo: f64,
+    p_all: f64,
+    a_share: f64,
+    /// 0 = bas dominuje … 1 = basu brakuje (wygładzone)
+    need: f64,
     a_gr_att: f64,
     a_gr_rel: f64,
     g_prev: f64,
@@ -92,6 +118,12 @@ impl WarmBass {
             ms: 0.0,
             a_ms: 0.0,
             gr: 0.0,
+            gr_avg: 0.0,
+            a_avg: 0.0,
+            p_lo: 0.0,
+            p_all: 0.0,
+            a_share: 0.0,
+            need: 0.5,
             a_gr_att: 0.0,
             a_gr_rel: 0.0,
             g_prev: 1.0,
@@ -101,6 +133,12 @@ impl WarmBass {
         s.reset(ctx);
         s
     }
+}
+
+/// Wzmocnienia dzwonów (70 Hz, 170 Hz) w dB; `need` 0 = bas dominuje, 1 = basu brakuje.
+#[inline]
+fn bells(a: f64, need: f64) -> (f64, f64) {
+    (a * (3.0 + 2.5 * need), a * (2.5 + 1.5 * need))
 }
 
 #[inline]
@@ -131,14 +169,20 @@ impl Module for WarmBass {
         self.ms = 0.0;
         self.a_ms = tau_coeff(0.050, kfs);
         self.gr = 0.0;
+        self.gr_avg = 0.0;
+        self.a_avg = tau_coeff(4.0, kfs);
+        self.p_lo = 0.0;
+        self.p_all = 0.0;
+        self.a_share = tau_coeff(3.0, kfs);
+        self.need = 0.5;
         self.a_gr_att = tau_coeff(0.040, kfs);
         self.a_gr_rel = tau_coeff(0.500, kfs);
         self.g_prev = 1.0;
-        let gb = 1.5 * self.a.value;
+        let (gl, gw) = bells(self.a.value, self.need);
         for c in self.ch.iter_mut() {
-            c.bell.c = SvfCoeffs::new(fs, 160.0, 0.8, Mode::Bell(gb));
+            c.set_bells(fs, gl, gw);
         }
-        self.last_bell = gb;
+        self.last_bell = gl;
         self.gr_meter = 0.0;
     }
     fn process(&mut self, l: &mut [f64], r: &mut [f64]) {
@@ -163,15 +207,15 @@ impl Module for WarmBass {
                 off += k;
                 continue;
             }
-            let w = 0.8 * a;
+            let w = 1.0 * a;
             let d = 1.0 + 2.0 * a;
             let ratio = 1.0 + 0.6 * a;
-            let gb = 1.5 * a;
-            if (gb - self.last_bell).abs() > 1e-4 || (gb == 0.0 && self.last_bell != 0.0) {
+            let (gl, gw) = bells(a, self.need);
+            if (gl - self.last_bell).abs() > 1e-3 || (gl == 0.0 && self.last_bell != 0.0) {
                 for c in self.ch.iter_mut() {
-                    c.bell.c = SvfCoeffs::new(fs, 160.0, 0.8, Mode::Bell(gb));
+                    c.set_bells(fs, gl, gw);
                 }
-                self.last_bell = gb;
+                self.last_bell = gl;
             }
             // kompresja pasma basu (detektor z poprzedniego bloku – 16 próbek bez znaczenia przy ataku 40 ms)
             let thr = -20.0;
@@ -179,24 +223,27 @@ impl Module for WarmBass {
             let lvl = 10.0 * (self.ms + 1e-18).log10();
             let dd = lvl - thr;
             let slope = 1.0 - 1.0 / ratio;
-            let c_red = if 2.0 * dd < -knee {
+            let over = if 2.0 * dd < -knee {
                 0.0
             } else if 2.0 * dd.abs() <= knee {
-                slope * (dd + knee / 2.0).powi(2) / (2.0 * knee)
+                (dd + knee / 2.0).powi(2) / (2.0 * knee)
             } else {
-                slope * dd
+                dd
             };
-            let al = if c_red > self.gr { self.a_gr_att } else { self.a_gr_rel };
-            self.gr = al * self.gr + (1.0 - al) * c_red;
-            if c_red == 0.0 && self.gr < 1e-6 {
+            let al = if over > self.gr { self.a_gr_att } else { self.a_gr_rel };
+            self.gr = al * self.gr + (1.0 - al) * over;
+            if over == 0.0 && self.gr < 1e-6 {
                 self.gr = 0.0; // dokładnie 1,0 wzmocnienia → przy a = 0 pełna przezroczystość
             }
-            let makeup = (0.5 * slope * (-12.0 - thr)).min(self.gr);
-            let g_target = und(makeup - self.gr);
-            gr_max = gr_max.max(self.gr - makeup);
+            self.gr_avg = self.a_avg * self.gr_avg + (1.0 - self.a_avg) * self.gr;
+            // ograniczenie: po długiej ciszy/zmianie utworu wyrównanie nie może zagrać za głośno
+            let g_db = (slope * (self.gr_avg - self.gr)).clamp(-6.0, 1.5);
+            let g_target = und(g_db);
+            gr_max = gr_max.max(-g_db);
             let g0 = self.g_prev;
             let dg = (g_target - g0) / k as f64;
             let mut sq = 0.0;
+            let mut sq_all = 0.0;
             for j in 0..k {
                 let i = off + j;
                 let g = g0 + dg * (j + 1) as f64;
@@ -205,6 +252,7 @@ impl Module for WarmBass {
                 let br = self.ch[1].band(xr);
                 let p = 0.5 * (bl * bl + br * br);
                 sq += p;
+                sq_all += 0.5 * (xl * xl + xr * xr);
                 self.ms_sat = p + self.a_sat * (self.ms_sat - p);
                 let lvl_pk = SQRT_2 * self.ms_sat.sqrt(); // amplituda sinusa o tym RMS
                 let mut outs = [0.0f64; 2];
@@ -215,12 +263,21 @@ impl Module for WarmBass {
                     let hp = ch.sat_hp.tick(sat - b);
                     let diff = ch.sat_lp.tick(hp);
                     let delta = w * diff + b * (g - 1.0);
-                    outs[c] = ch.bell.tick(x + delta);
+                    let lo = ch.low.tick(x + delta);
+                    outs[c] = ch.bell.tick(lo);
                 }
                 l[i] = outs[0];
                 r[i] = outs[1];
             }
             self.g_prev = g_target;
+            // udział basu: −2 dB całości i więcej → need 0; −12 dB i mniej → need 1 (w ciszy bez zmian)
+            if sq_all / k as f64 > 1e-7 {
+                self.p_lo = self.a_share * self.p_lo + (1.0 - self.a_share) * sq / k as f64;
+                self.p_all = self.a_share * self.p_all + (1.0 - self.a_share) * sq_all / k as f64;
+                let share = 10.0 * ((self.p_lo + 1e-18) / (self.p_all + 1e-18)).log10();
+                let nd = ((-2.0 - share) / 10.0).clamp(0.0, 1.0);
+                self.need = nd + self.a_share * (self.need - nd);
+            }
             self.ms = self.a_ms * self.ms + (1.0 - self.a_ms) * sq / k as f64;
             off += k;
         }
@@ -286,7 +343,7 @@ mod tests {
         let mut m = WarmBass::new(ctx);
         m.set_amount(ModuleId::WarmBass, 1.0);
         m.reset(ctx);
-        let n = 48_000 * 4;
+        let n = 48_000 * 25; // 25 s: wolne średnie (3–4 s) już ustalone, mierzymy samo falowanie
         let x: Vec<f64> = (0..n).map(|i| 0.4 * (2.0 * PI * 50.0 * i as f64 / fs).sin()).collect();
         let (mut l, mut r) = (x.clone(), x.clone());
         crate::modules::testkit::run(&mut m, &mut l, &mut r);

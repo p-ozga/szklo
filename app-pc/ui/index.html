@@ -441,7 +441,7 @@ const $ = s => document.querySelector(s);
 const wyslij = o => { try { window.ipc.postMessage(JSON.stringify(o)); } catch (e) { /* podgląd w przeglądarce */ } };
 if (new URLSearchParams(location.search).has('akryl')) document.body.classList.add('akryl');
 /* ---------- wbudowany odtwarzacz ---------- */
-const ODTW = { stan: null, duzy: false, szczyty: new Array(24).fill(0), widmo: new Array(24).fill(0), przeciaga: false };
+const ODTW = { stan: null, duzy: false, szczyty: new Array(25).fill(0), widmo: new Array(25).fill(0), przeciaga: false };
 const mmss = s => { s = Math.max(0, Math.floor(s || 0)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
 /* Źródło na karcie: wbudowany odtwarzacz albo aplikacja (Spotify itp.) sterowana przez multimedia Windows.
    Aplikacja przejmuje kartę, gdy nasz odtwarzacz nie gra, a ona gra albo nasza kolejka jest pusta. */
@@ -692,16 +692,16 @@ const pl = (x, d=1) => (x < 0 ? '−' : '') + Math.abs(x).toFixed(d).replace('.'
 const GRUPY = [
   ['Naprawa',  [[0,'Declipper'],[1,'Naprawa MP3'],[2,'Szum i brum'],[3,'Dehummer'],[4,'Dekwantyzer'],[5,'Bramka szumów']]],
   ['Dynamika', [[6,'AGC'],[7,'Multiband 1'],[8,'Multiband 2'],[9,'Kompresor'],[10,'Punch']]],
-  ['Bas',      [[11,'Głęboki bas'],[12,'Bas harmoniczny'],[13,'Bass Boost'],[14,'Ciepły bas']]],
+  ['Bas',      [[11,'Głęboki bas'],[12,'Bas harmoniczny'],[13,'Bass Boost'],[14,'Ciepły bas'],[24,'Radiowy bas']]],
   ['Barwa',    [[15,'Auto EQ'],[16,'Balans widma']]],
-  ['Stereo',   [[17,'Szerokość'],[18,'Rotacja fazy']]],
+  ['Stereo',   [[17,'Szerokość'],[23,'Przestrzeń'],[18,'Rotacja fazy']]],
   ['Wyjście',  [[19,'Clipper HD'],[20,'Pre-limiter'],[21,'Prosty clipper'],[22,'Hard Limit']]],
 ];
 /* Presety: stan wstępny (nadpisywany przez rdzeń przez szklo.stan) */
 let PRESETY = [
   {key:'codzienny', name:'Codzienny'}, {key:'noc', name:'Noc'}, {key:'stare', name:'Stare nagrania'}, {key:'tramwaj', name:'Głośno w tramwaju'}
 ];
-const S = { on: Array(23).fill(false), val: Array(23).fill(0), presetVal: Array(23).fill(0), presetOn: Array(23).fill(false),
+const S = { on: Array(25).fill(false), val: Array(25).fill(0), presetVal: Array(25).fill(0), presetOn: Array(25).fill(false),
             preset: 'codzienny', wlaczone: true };
 /* wartości startowe z makiety (renderVals) – zastępowane stanem z rdzenia */
 [[0,60,1],[1,45,1],[6,70,1],[7,55,1],[9,20,1],[10,40,1],[11,35,1],[12,50,1],[14,30,1],[15,60,1],[16,25,1],[17,40,1],[18,100,1],[19,65,1],[22,100,1]]
@@ -729,7 +729,7 @@ function zbuduj() {
     }
     siatka.appendChild(k);
   }
-  for (let i = 0; i < 23; i++) odswiezWiersz(i);
+  for (let i = 0; i < 25; i++) odswiezWiersz(i);
 }
 function fmtProc(v) { return (Math.abs(v - Math.round(v)) < 1e-6 ? Math.round(v).toString() : v.toFixed(1).replace('.', ',')) + '%'; }
 function odswiezWiersz(i) {
@@ -801,7 +801,7 @@ function zbudujChipy() {
 function zmieniony() {
   const p = PRESETY.find(x => x.key === S.preset);
   if (!p || !p.mods) return true;
-  for (let i = 0; i < 23; i++) {
+  for (let i = 0; i < 25; i++) {
     if (!!p.mods[i][0] !== !!S.on[i] || Math.abs(p.mods[i][1] * 100 - S.val[i]) > 0.5) return true;
   }
   return false;
@@ -852,12 +852,12 @@ function wybierzPreset(key) {
   const p = PRESETY.find(x => x.key === key); if (!p || !p.mods) { wyslij({ t: 'preset', key }); return; }
   S.preset = key; zbudujChipy();
   const od = S.val.slice(), cel = p.mods.map(m => m[1] * 100);
-  for (let i = 0; i < 23; i++) { S.presetVal[i] = cel[i]; S.presetOn[i] = p.mods[i][0]; S.on[i] = p.mods[i][0]; }
+  for (let i = 0; i < 25; i++) { S.presetVal[i] = cel[i]; S.presetOn[i] = p.mods[i][0]; S.on[i] = p.mods[i][0]; }
   const t0 = performance.now();
   cancelAnimationFrame(animPresetu);
   const krokAnim = t => {
     const u = Math.min(1, (t - t0) / 150), e = u < .5 ? 2*u*u : 1 - Math.pow(-2*u + 2, 2) / 2;
-    for (let i = 0; i < 23; i++) { S.val[i] = Math.round((od[i] + (cel[i] - od[i]) * e) * 10) / 10; odswiezWiersz(i); }
+    for (let i = 0; i < 25; i++) { S.val[i] = Math.round((od[i] + (cel[i] - od[i]) * e) * 10) / 10; odswiezWiersz(i); }
     wyslij({ t: 'all', on: S.on, a: S.val.map(v => v / 100), preset: key });
     if (u < 1) animPresetu = requestAnimationFrame(krokAnim); else odswiezKartePresetow();
   };
@@ -978,7 +978,7 @@ window.szklo = {
     if (s.enabled !== undefined) ustawWl(s.enabled);
     if (s.ceiling !== undefined) sufitDb = s.ceiling;
     if (s.device) $('#urzadzenie').textContent = s.device;
-    zbudujChipy(); for (let i = 0; i < 23; i++) odswiezWiersz(i);
+    zbudujChipy(); for (let i = 0; i < 25; i++) odswiezWiersz(i);
   },
   urzadzenia(d) {
     if (d.mode) $('#trybSel').value = d.mode;

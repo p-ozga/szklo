@@ -91,17 +91,32 @@ fn zarejestruj_wtyczke() -> Result<String, String> {
     // (kod w procesie usługi systemowej). System i administratorzy: pełne prawa.
     // Folder mógł już istnieć (utworzony wcześniej przez zwykłego użytkownika): przejmujemy własność i ustawiamy prawa
     // od nowa; bez tego właściciel mógłby podmienić plik ładowany przez usługę systemową.
-    let icacls = |args: &[&str]| -> Result<(), String> {
-        let st = std::process::Command::new("icacls").arg(&folder).args(args).status().map_err(|e| format!("icacls: {e}"))?;
-        if st.success() { Ok(()) } else { Err(format!("nie udało się zabezpieczyć {} (icacls {args:?})", folder.display())) }
+    let icacls = |cel: &Path, args: &[&str]| -> Result<(), String> {
+        let st = std::process::Command::new("icacls").arg(cel).args(args).status().map_err(|e| format!("icacls: {e}"))?;
+        if st.success() { Ok(()) } else { Err(format!("nie udało się zabezpieczyć {} (icacls {args:?})", cel.display())) }
     };
-    icacls(&["/setowner", "*S-1-5-32-544", "/T", "/Q"])?;
-    icacls(&["/inheritance:r", "/grant:r", "*S-1-5-18:(OI)(CI)F", "*S-1-5-32-544:(OI)(CI)F", "*S-1-5-19:(OI)(CI)RX", "*S-1-5-32-545:(OI)(CI)RX", "/T", "/Q"])?;
+    // Prawa samego folderu muszą się udać. Bez /T: wpisy (OI)(CI) dotyczą tylko folderów – nałożone na pliki razem
+    // z /inheritance:r zostawiają je bez żadnych praw (tak psuły się wtyczki przy ponownej instalacji do 0.6.0).
+    icacls(&folder, &["/inheritance:r", "/grant:r", "*S-1-5-18:(OI)(CI)F", "*S-1-5-32-544:(OI)(CI)F", "*S-1-5-19:(OI)(CI)RX", "*S-1-5-32-545:(OI)(CI)RX", "/Q"])?;
+    // Zawartość: prawa dziedziczone z folderu, potem własność. Tylko „w miarę możliwości” – stara wtyczka bywa otwarta
+    // przez usługę dźwięku, a akcja instalatora działa z okrojonymi przywilejami.
+    if std::fs::read_dir(&folder).map(|mut d| d.next().is_some()).unwrap_or(false) {
+        if let Err(e) = icacls(&folder.join("*"), &["/reset", "/T", "/C", "/Q"]) {
+            log::warn!("instalacja: {e} – prawa części starych plików bez zmian");
+        }
+    }
+    if let Err(e) = icacls(&folder, &["/setowner", "*S-1-5-32-544", "/T", "/C", "/Q"]) {
+        log::warn!("instalacja: {e} – część plików bez zmiany właściciela");
+    }
     // nazwa z sumą kontrolną: nowa wersja ma nowy plik (stary bywa zablokowany przez usługę dźwięku)
     let cel = folder.join(format!("szklo_vst2_{skrot}.dll"));
     // istniejący plik o tej nazwie musi być bajt w bajt nasz (nazwa to tylko 4 bajty skrótu – nie dowód)
     if std::fs::read(&cel).map(|b| b != bajty).unwrap_or(true) {
-        std::fs::write(&cel, &bajty).map_err(|e| format!("{}: {e}", cel.display()))?;
+        if std::fs::write(&cel, &bajty).is_err() {
+            // plik bez praw zapisu po starszej wersji: usunięcie wymaga praw do folderu, a te są już ustawione
+            let _ = std::fs::remove_file(&cel);
+            std::fs::write(&cel, &bajty).map_err(|e| format!("{}: {e}", cel.display()))?;
+        }
     }
     let Some((_, konf)) = apo_sciezki() else {
         return Ok(format!("wtyczka skopiowana do {} (Equalizer APO jeszcze nie jest zainstalowany)", cel.display()));

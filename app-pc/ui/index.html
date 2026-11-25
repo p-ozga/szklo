@@ -142,14 +142,17 @@ select option{background:#0d2326;color:var(--tekst)}
 .odtw-wiz,.odtw-lista-nagl,.odtw-lista{display:none}
 .odtw-blad{font-size:12px;color:#F2A7A7;min-height:0}
 .odtw-karta.duzy{position:absolute;left:24px;right:24px;top:76px;bottom:20px;z-index:10;box-shadow:0 18px 60px rgba(0,0,0,.45)}
+.odtw-karta.duzy{background:#0E2427}
 .odtw-karta.duzy .odtw-wiz{display:flex;align-items:stretch;gap:18px;height:150px;flex-shrink:0}
 .odtw-karta.duzy .odtw-lista-nagl{display:flex;align-items:center;gap:8px;margin-top:6px}
 .odtw-karta.duzy .odtw-lista{display:block}
+/* zakładka Spotify: zegar i widmo ustępują miejsca bibliotece */
+.odtw-karta.duzy.sp:not(.wiz):not(.milk) .odtw-wiz{display:none}
 .odtw-zegar{display:flex;align-items:center;gap:12px;padding:0 18px;border-radius:12px;background:rgba(0,0,0,.28);border:1px solid rgba(37,226,247,.18);
   font-family:'Space Grotesk',sans-serif;font-size:56px;font-weight:600;letter-spacing:2px;color:#25E2F7;font-variant-numeric:tabular-nums;text-shadow:0 0 18px rgba(37,226,247,.45)}
 .odtw-znak{font-size:22px;color:#1FB8C9;text-shadow:none}
 .odtw-wiz canvas{flex:1;min-width:0;height:150px;border-radius:12px;background:rgba(0,0,0,.28);border:1px solid rgba(37,226,247,.18)}
-.odtw-lista{flex:1;min-height:0;overflow:auto;margin:0;padding:0;list-style:none;border-radius:12px;background:rgba(0,0,0,.18)}
+.odtw-lista{flex:1;min-height:0;overflow:auto;scrollbar-width:thin;scrollbar-color:rgba(127,239,251,.35) transparent;margin:0;padding:0;list-style:none;border-radius:12px;background:rgba(0,0,0,.18)}
 .odtw-lista li{display:grid;grid-template-columns:34px minmax(0,1fr) minmax(0,.7fr) 56px 28px;align-items:center;gap:8px;padding:7px 10px;font-size:13px;border-bottom:1px solid rgba(255,255,255,.05);cursor:default}
 .odtw-lista li:hover{background:rgba(37,226,247,.07)}
 .odtw-lista li.biezacy{background:rgba(31,184,201,.16);color:#25E2F7}
@@ -167,7 +170,25 @@ select option{background:#0d2326;color:var(--tekst)}
 .sp-widok{flex:1;min-height:0;display:grid;grid-template-columns:300px minmax(0,1fr);gap:12px}
 .sp-widok[hidden]{display:none}
 .odtw-karta:not(.duzy) .sp-widok{display:none}
-.sp-playlisty li{grid-template-columns:minmax(0,1fr) 48px}
+.odtw-lista.sp-playlisty li{grid-template-columns:minmax(0,1fr) 48px;cursor:pointer}
+.odtw-lista.sp-playlisty li.sp-grupa{display:block;cursor:default;padding:10px 10px 4px;font-size:11px;font-weight:600;letter-spacing:.4px;color:#7FEFFB;border-bottom:0;background:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.odtw-lista.sp-playlisty li.sp-wazna .tyt{font-weight:600}
+.sp-szukaj{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.sp-pole{flex:1;min-width:180px;position:relative;display:flex}
+.sp-pole svg{position:absolute;left:12px;top:50%;width:15px;height:15px;transform:translateY(-50%);fill:none;stroke:#7FEFFB;stroke-width:1.8;stroke-linecap:round;pointer-events:none}
+.sp-pole input{flex:1;min-width:0;font:inherit;font-size:13px;color:#EEF9FA;background:rgba(0,0,0,.25);border:1px solid rgba(255,255,255,.14);border-radius:999px;padding:8px 14px 8px 34px;outline:none;-webkit-user-select:text;user-select:text}
+.sp-pole input::placeholder{color:var(--tekst60)}
+.sp-pole input:focus{border-color:rgba(37,226,247,.6)}
+.sp-pole input::-webkit-search-cancel-button{filter:invert(1) opacity(.6)}
+.sp-szukaj .zakl{padding:6px 12px;max-width:190px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sp-info{font-size:12px;color:var(--tekst60);line-height:1.4}
+.sp-info:empty{display:none}
+.odtw-lista.sp-wyniki li{grid-template-columns:40px minmax(0,1fr) minmax(0,.7fr) minmax(0,.7fr) 52px}
+.odtw-lista.sp-wyniki li.sp-alb{grid-template-columns:minmax(0,1fr) minmax(0,.7fr) 130px;cursor:pointer}
+.odtw-lista.sp-wyniki li.sp-wyk{grid-template-columns:minmax(0,1fr);cursor:pointer}
+.odtw-lista li:focus-visible{outline:2px solid rgba(37,226,247,.7);outline-offset:-2px}
+.sp-odn{cursor:pointer}
+.sp-odn:hover{color:#25E2F7;text-decoration:underline}
 .sp-playlisty li.otwarta{background:rgba(31,184,201,.16);color:#25E2F7}
 .sp-prawa{display:flex;flex-direction:column;gap:8px;min-height:0}
 .sp-prawa-nagl{display:flex;align-items:center;gap:8px;min-height:36px}
@@ -388,17 +409,33 @@ body.pelny .odtw-karta.wiz .odtw-gora{visibility:hidden}
             <span class="odtw-kolejka-akcje" id="spAkcje" hidden>
               <span class="sp-opis" id="spOpis"></span>
               <button type="button" class="btn-szklo" id="spUkryj" aria-pressed="false" title="Chowa okno aplikacji Spotify: znika z paska zadań, gra dalej, a Ty sterujesz nią z tej karty. Po zamknięciu Szkła okno wraca.">Schowaj aplikację Spotify</button>
+              <button type="button" class="btn-szklo" id="spOdswiez" hidden title="Wczytuje bibliotekę Spotify jeszcze raz">Odśwież</button>
               <button type="button" class="btn-szklo btn-glowny" id="spZaloguj">Zaloguj do Spotify</button>
               <button type="button" class="btn-szklo" id="spWyloguj" hidden>Wyloguj</button>
             </span>
           </div>
           <ol class="odtw-lista" id="odtwLista"></ol>
           <div class="sp-widok" id="spWidok" hidden>
-            <ul class="odtw-lista sp-playlisty" id="spPlaylisty" aria-label="Playlisty Spotify"></ul>
+            <ul class="odtw-lista sp-playlisty" id="spPlaylisty" aria-label="Biblioteka Spotify"></ul>
             <div class="sp-prawa">
-              <div class="sp-prawa-nagl"><span class="etykieta" id="spUtworyTytul">Wybierz playlistę</span><div class="spacer"></div>
+              <div class="sp-szukaj" role="search">
+                <button type="button" class="ikona-btn" id="spWstecz" title="Wstecz" aria-label="Wstecz" hidden><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
+                <div class="sp-pole"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l5 5"/></svg><input type="search" id="spQ" maxlength="120" spellcheck="false" autocomplete="off" placeholder="Szukaj utworów, albumów, wykonawców" aria-label="Szukaj w Spotify"></div>
+                <div class="odtw-zakladki" role="radiogroup" aria-label="Gdzie szukać">
+                  <button type="button" role="radio" class="zakl" id="zkLista" data-zakres="lista" aria-checked="false" aria-selected="false">Zaznaczona lista</button>
+                  <button type="button" role="radio" class="zakl" data-zakres="biblioteka" aria-checked="true" aria-selected="true">Cała biblioteka</button>
+                  <button type="button" role="radio" class="zakl" data-zakres="katalog" aria-checked="false" aria-selected="false">Cały Spotify</button>
+                </div>
+              </div>
+              <div class="sp-prawa-nagl"><span class="etykieta" id="spUtworyTytul">Wybierz listę albo wpisz, czego szukasz</span><div class="spacer"></div>
+                <div class="odtw-zakladki" id="spRodzaje" role="tablist" hidden>
+                  <button type="button" role="tab" class="zakl" data-rodzaj="utwory" aria-selected="true">Utwory</button>
+                  <button type="button" role="tab" class="zakl" data-rodzaj="albumy" aria-selected="false">Albumy</button>
+                  <button type="button" role="tab" class="zakl" data-rodzaj="wykonawcy" aria-selected="false">Wykonawcy</button>
+                </div>
                 <button type="button" class="btn-szklo btn-glowny" id="spGrajWszystko" hidden>Otwórz w Spotify</button></div>
-              <ol class="odtw-lista" id="spUtwory"></ol>
+              <div class="sp-info" id="spInfo" role="status"></div>
+              <ol class="odtw-lista sp-wyniki" id="spUtwory"></ol>
             </div>
           </div>
           <div class="odtw-blad" id="odtwBlad" role="status"></div>
@@ -675,50 +712,128 @@ document.addEventListener('DOMContentLoaded', () => {
   $('#btnApoPodlacz').addEventListener('click', () => wyslij({ t: 'apo_podlacz' }));
   document.querySelectorAll('.btn-obroc').forEach(b => b.addEventListener('click', () => obroc()));
 });
-/* ---------- Spotify w odtwarzaczu ---------- */
-const SP = { stan: null, zakladka: 'kolejka' };
+/* ---------- Spotify w odtwarzaczu: biblioteka i szukanie (dane z modułu szklo-spotify) ---------- */
+const SP = { stan: null, spis: null, widok: null, zakladka: 'kolejka', zakres: 'biblioteka', rodzaj: 'utwory', reczny: false, zegar: 0, rysowane: 0 };
+const spBib = m => wyslij({ t: 'sp_bib', m });
+const spOtworz = uri => { $('#spQ').value = ''; spBib({ c: 'otworz', uri }); };
+const spZalogowany = () => !!SP.stan && SP.stan.status === 'gotowe';
+function ileCzego(n, jeden, kilka, wiele) { const d = n % 10, s = n % 100; return `${n} ${n === 1 ? jeden : d >= 2 && d <= 4 && (s < 12 || s > 14) ? kilka : wiele}`; }
 function zakladka(z) {
   SP.zakladka = z;
   $('#zaklKolejka').setAttribute('aria-selected', z === 'kolejka'); $('#zaklSpotify').setAttribute('aria-selected', z === 'spotify');
   $('#odtwLista').hidden = z !== 'kolejka'; $('#kolejkaAkcje').hidden = z !== 'kolejka';
   $('#spWidok').hidden = z !== 'spotify'; $('#spAkcje').hidden = z !== 'spotify';
   $('#odtwListaTytul').hidden = z !== 'kolejka';
-  if (z === 'spotify') spRysuj();
+  $('#odtwKarta').classList.toggle('sp', z === 'spotify');
+  if (z === 'spotify') { spRysuj(); if (spZalogowany()) spBib({ c: 'odswiez', max_s: 600 }); }
 }
-function spWiersz(nr, tyt, wyk, czas) {
-  const li = document.createElement('li');
-  li.innerHTML = `<span class="nr">${nr}</span><span class="tyt"></span><span class="wyk"></span><span class="t">${czas}</span><span></span>`;
-  li.querySelector('.tyt').textContent = tyt; li.querySelector('.wyk').textContent = wyk;
-  return li;
-}
-function spRysuj() {
+function spPusto(gdzie, tekst) { const d = document.createElement('li'); d.className = 'odtw-pusto'; d.style.display = 'block'; d.textContent = tekst; gdzie.appendChild(d); }
+function spRysuj() { spRysujSpis(); spRysujWidok(); }
+function spRysujSpis() {
   const s = SP.stan; if (!s) return;
-  const zal = s.status === 'gotowe';
+  const zal = spZalogowany(), spis = zal ? SP.spis : null;
   $('#spZaloguj').hidden = zal || s.status === 'laczenie' || s.status === 'login';
-  $('#spWyloguj').hidden = !zal;
-  $('#spOpis').textContent = zal ? `${s.konto}${s.opis ? ' · ' + s.opis : ''}` : (s.opis || 'Zaloguj się, żeby przeglądać playlisty. Muzyka gra w aplikacji Spotify, Szkło ją przetwarza i steruje nią z tej karty.');
-  const pl = $('#spPlaylisty'); pl.innerHTML = '';
-  if (!zal) { const d = document.createElement('div'); d.className = 'odtw-pusto'; d.textContent = s.status === 'login' ? 'Dokończ logowanie w przeglądarce…' : s.status === 'laczenie' ? 'Łączenie…' : 'Zaloguj się, żeby zobaczyć swoje playlisty.'; pl.appendChild(d); }
-  for (const p of s.playlisty || []) {
-    const li = document.createElement('li'); if (p.uri === s.otwarta) li.className = 'otwarta';
+  $('#spWyloguj').hidden = !zal; $('#spOdswiez').hidden = !zal;
+  $('#spOdswiez').disabled = !!spis && spis.stan === 'wczytywanie';
+  const opis = s.opis || (spis && spis.info) || '';
+  $('#spOpis').textContent = zal ? `${s.konto}${opis ? ' · ' + opis : ''}` : (s.opis || 'Zaloguj się, żeby przeglądać bibliotekę. Muzyka gra w aplikacji Spotify, Szkło ją przetwarza i steruje nią z tej karty.');
+  $('#spOpis').title = $('#spOpis').textContent;
+  const pl = $('#spPlaylisty'), gora = pl.scrollTop; pl.innerHTML = '';
+  if (!zal) return spPusto(pl, s.status === 'login' ? 'Dokończ logowanie w przeglądarce…' : s.status === 'laczenie' ? 'Łączenie…' : 'Zaloguj się, żeby zobaczyć swoją bibliotekę.');
+  const listy = (spis && spis.listy) || [];
+  if (!listy.length) return spPusto(pl, spis && spis.stan === 'blad' ? spis.info : 'Wczytywanie biblioteki…');
+  const zaznaczona = SP.widok ? (SP.widok.rodzaj === 'lista' ? SP.widok.uri : '') : '';
+  let grupa = null;
+  for (const p of listy) {
+    const g = p.rodzaj === 'podcast' ? 'Podcasty' : p.rodzaj === 'playlista' ? (p.folder ? 'Folder: ' + p.folder : 'Playlisty') : 'Biblioteka';
+    if (g !== grupa) { grupa = g; const n = document.createElement('li'); n.className = 'sp-grupa'; n.textContent = g; n.title = g; pl.appendChild(n); }
+    const li = document.createElement('li');
+    li.className = (p.uri === zaznaczona ? 'otwarta ' : '') + (p.rodzaj === 'playlista' || p.rodzaj === 'podcast' ? '' : 'sp-wazna');
     li.innerHTML = '<span class="tyt"></span><span class="t"></span>';
     li.querySelector('.tyt').textContent = p.nazwa || '(bez nazwy)'; li.querySelector('.t').textContent = p.ile || '';
-    li.tabIndex = 0;
-    li.addEventListener('click', () => wyslij({ t: 'sp_playlista', uri: p.uri }));
-    li.addEventListener('keydown', e => { if (e.key === 'Enter') wyslij({ t: 'sp_playlista', uri: p.uri }); });
+    li.title = p.nazwa; li.tabIndex = 0;
+    li.addEventListener('click', () => spOtworz(p.uri));
+    li.addEventListener('keydown', e => { if (e.key === 'Enter') spOtworz(p.uri); });
     pl.appendChild(li);
   }
-  const otw = (s.playlisty || []).find(p => p.uri === s.otwarta);
-  $('#spUtworyTytul').textContent = otw ? `${otw.nazwa} · ${s.utwory.length} utworów` : (zal ? 'Wybierz playlistę' : '');
-  $('#spGrajWszystko').hidden = !s.utwory.length;
-  const ul = $('#spUtwory'); ul.innerHTML = '';
-  if (s.wczytywanie) { const d = document.createElement('div'); d.className = 'odtw-pusto'; d.textContent = 'Wczytywanie utworów…'; ul.appendChild(d); }
-  s.utwory.forEach((u, i) => {
-    const li = spWiersz(i + 1 + '.', u.tytul, u.wykonawca, mmss(u.czas));
-    li.title = 'Dwuklik: otwórz w aplikacji Spotify';
-    li.addEventListener('dblclick', () => { wyslij({ t: 'z_otworz', uri: u.sciezka }); });
-    ul.appendChild(li);
+  pl.scrollTop = gora;
+}
+function spOdn(klasa, tekst, uri) {
+  const s = document.createElement('span'); s.className = klasa; s.textContent = tekst; s.title = tekst;
+  if (uri && /^spotify:(artist|album|show):/.test(uri)) { s.classList.add('sp-odn'); s.addEventListener('click', e => { e.stopPropagation(); spOtworz(uri); }); }
+  return s;
+}
+function spWiersz(u, i) {
+  const li = document.createElement('li'); li.tabIndex = 0;
+  const nr = document.createElement('span'); nr.className = 'nr'; nr.textContent = i + 1 + '.';
+  const t = document.createElement('span'); t.className = 'tyt'; t.textContent = u.tytul; t.title = u.tytul;
+  const c = document.createElement('span'); c.className = 't'; c.textContent = u.czas > 0 ? mmss(u.czas) : '';
+  li.append(nr, t, spOdn('wyk', u.wykonawcy.map(w => w.nazwa).join(', '), u.wykonawcy.length ? u.wykonawcy[0].uri : ''), spOdn('wyk', u.album.nazwa, u.album.uri), c);
+  const graj = () => wyslij({ t: 'z_otworz', uri: u.uri });
+  t.title += ' – dwuklik: zagraj w aplikacji Spotify';
+  li.addEventListener('dblclick', graj);
+  li.addEventListener('keydown', e => { if (e.key === 'Enter') graj(); });
+  return li;
+}
+function spWierszPozycji(klasa, pola, uri) {
+  const li = document.createElement('li'); li.className = klasa; li.tabIndex = 0;
+  for (const [k, v] of pola) { const s = document.createElement('span'); s.className = k; s.textContent = v; s.title = v; li.appendChild(s); }
+  li.addEventListener('click', () => spOtworz(uri));
+  li.addEventListener('keydown', e => { if (e.key === 'Enter') spOtworz(uri); });
+  return li;
+}
+/* długie listy rysowane partiami w miarę przewijania */
+function spDorysuj(ile) {
+  const w = SP.widok, ul = $('#spUtwory'); if (!w) return;
+  const v = w[SP.pokazany] || [], do_ = Math.min(v.length, SP.rysowane + ile), f = document.createDocumentFragment();
+  for (let i = SP.rysowane; i < do_; i++) {
+    const x = v[i];
+    f.appendChild(SP.pokazany === 'utwory' ? spWiersz(x, i)
+      : SP.pokazany === 'albumy' ? spWierszPozycji('sp-alb', [['tyt', x.nazwa], ['wyk', x.wykonawca], ['t', [x.rok || '', x.ile ? ileCzego(x.ile, 'utwór', 'utwory', 'utworów') : ''].filter(Boolean).join(' · ')]], x.uri)
+      : spWierszPozycji('sp-wyk', [['tyt', x.nazwa]], x.uri));
+  }
+  SP.rysowane = do_; ul.appendChild(f);
+}
+function spAdres(w) {
+  if (!w) return '';
+  if (w.rodzaj === 'szukaj') return 'spotify:search:' + encodeURIComponent(w.q);
+  return w.uri.startsWith('spotify:') ? w.uri : '';
+}
+function spRysujWidok() {
+  const zal = spZalogowany(), w = zal ? SP.widok : null, ul = $('#spUtwory');
+  $('#spQ').disabled = !zal;
+  document.querySelectorAll('[data-zakres]').forEach(b => { const on = b.dataset.zakres === SP.zakres; b.setAttribute('aria-checked', on); b.setAttribute('aria-selected', on); b.disabled = !zal; });
+  const zazn = w && w.zaznaczona;
+  $('#zkLista').textContent = zazn || 'Zaznaczona lista'; $('#zkLista').title = zazn ? `Szukaj tylko w: ${zazn}` : 'Zaznacz listę po lewej, żeby szukać tylko w niej';
+  $('#spWstecz').hidden = !(w && w.wstecz);
+  ul.innerHTML = ''; ul.scrollTop = 0; SP.rysowane = 0;
+  const jest = !!w && !!w.rodzaj;
+  $('#spGrajWszystko').hidden = !jest || !spAdres(w);
+  $('#spGrajWszystko').textContent = jest && w.rodzaj === 'szukaj' ? 'Szukaj w aplikacji Spotify' : 'Otwórz w Spotify';
+  $('#spRodzaje').hidden = true; $('#spInfo').textContent = '';
+  if (!jest) { $('#spUtworyTytul').textContent = zal ? 'Wybierz listę albo wpisz, czego szukasz' : ''; return; }
+  const n = { utwory: w.utwory.length, albumy: w.albumy.length, wykonawcy: w.wykonawcy.length };
+  // zakładka wybrana ręcznie zostaje; inaczej pierwsza, w której coś jest
+  SP.pokazany = n[SP.rodzaj] || (w.rodzaj === 'szukaj' && SP.reczny) ? SP.rodzaj : (['utwory', 'albumy', 'wykonawcy'].find(k => n[k]) || 'utwory');
+  const kilka = w.rodzaj === 'szukaj' || Object.values(n).filter(Boolean).length > 1;
+  $('#spRodzaje').hidden = !kilka;
+  document.querySelectorAll('[data-rodzaj]').forEach(b => {
+    const k = b.dataset.rodzaj; b.setAttribute('aria-selected', k === SP.pokazany);
+    b.textContent = `${{ utwory: 'Utwory', albumy: 'Albumy', wykonawcy: 'Wykonawcy' }[k]}${w.wczytywanie && !n[k] ? '' : ' ' + n[k]}`;
+    b.hidden = w.rodzaj !== 'szukaj' && !n[k];
   });
+  const czas = w.utwory.reduce((a, x) => a + (x.czas || 0), 0);
+  $('#spUtworyTytul').textContent = w.tytul + (w.rodzaj === 'lista' && n.utwory && !kilka ? ` · ${ileCzego(n.utwory, 'utwór', 'utwory', 'utworów')} · ${mmss(czas)}` : '');
+  $('#spUtworyTytul').title = $('#spUtworyTytul').textContent;
+  $('#spInfo').textContent = w.info || (w.wczytywanie ? (w.rodzaj === 'szukaj' ? 'Szukam…' : 'Wczytywanie…')
+    : w.rodzaj === 'szukaj' && w.zakres === 'katalog' ? 'Najtrafniejsze wyniki, które Spotify udostępnia Szkłu. Pełna lista: „Szukaj w aplikacji Spotify”.' : '');
+  if (!n[SP.pokazany] && !w.wczytywanie && !w.info) spPusto(ul, w.rodzaj === 'szukaj' ? 'Brak wyników w tej zakładce.' : 'Pusto.');
+  spDorysuj(150);
+}
+function spSzukaj(zaraz) {
+  clearTimeout(SP.zegar);
+  const idz = () => spBib({ c: 'szukaj', q: $('#spQ').value, zakres: SP.zakres });
+  if (zaraz) idz(); else SP.zegar = setTimeout(idz, SP.zakres === 'katalog' ? 650 : 300);
 }
 document.addEventListener('DOMContentLoaded', () => {
   $('#zaklKolejka').addEventListener('click', () => zakladka('kolejka'));
@@ -727,7 +842,20 @@ document.addEventListener('DOMContentLoaded', () => {
   $('#spUkryj').addEventListener('click', () => wyslij({ t: 'z_ukryj', b: $('#spUkryj').getAttribute('aria-pressed') !== 'true' }));
   $('#spZaloguj').addEventListener('click', () => wyslij({ t: 'sp_zaloguj' }));
   $('#spWyloguj').addEventListener('click', () => wyslij({ t: 'sp_wyloguj' }));
-  $('#spGrajWszystko').addEventListener('click', () => { if (SP.stan && SP.stan.otwarta) wyslij({ t: 'z_otworz', uri: SP.stan.otwarta }); });
+  $('#spOdswiez').addEventListener('click', () => spBib({ c: 'odswiez' }));
+  $('#spWstecz').addEventListener('click', () => { $('#spQ').value = ''; spBib({ c: 'wstecz' }); });
+  $('#spGrajWszystko').addEventListener('click', () => { const a = spAdres(SP.widok); if (a) wyslij({ t: 'z_otworz', uri: a }); });
+  $('#spQ').addEventListener('input', () => { SP.reczny = false; spSzukaj(!$('#spQ').value.trim()); });
+  $('#spQ').addEventListener('keydown', e => {
+    e.stopPropagation(); // cyfry i litery wpisywane tutaj to nie skróty programu
+    if (e.key === 'Enter') { e.preventDefault(); spSzukaj(true); }
+    else if (e.key === 'Escape') { e.preventDefault(); if ($('#spQ').value) { $('#spQ').value = ''; spSzukaj(true); } else $('#spQ').blur(); }
+  });
+  document.querySelectorAll('[data-zakres]').forEach(b => b.addEventListener('click', () => { SP.zakres = b.dataset.zakres; SP.reczny = false; if ($('#spQ').value.trim()) spSzukaj(true); spRysujWidok(); $('#spQ').focus(); }));
+  document.querySelectorAll('[data-rodzaj]').forEach(b => b.addEventListener('click', () => { SP.rodzaj = b.dataset.rodzaj; SP.reczny = true; spRysujWidok(); }));
+  $('#spUtwory').addEventListener('scroll', e => { const u = e.currentTarget; if (u.scrollTop + u.clientHeight > u.scrollHeight - 300) spDorysuj(150); });
+  // Ctrl+F: pole szukania (gdy otwarta jest zakładka Spotify)
+  document.addEventListener('keydown', e => { if (e.ctrlKey && e.key.toLowerCase() === 'f' && ODTW.duzy && SP.zakladka === 'spotify' && spZalogowany()) { e.preventDefault(); $('#spQ').focus(); $('#spQ').select(); } }, true);
 });
 /* ---------- O programie i licencje (cudze elementy – wyraźnie podpisane) ---------- */
 async function licPokaz(url) {
@@ -1068,7 +1196,14 @@ window.szklo = {
   // pełny ekran włączony/wyłączony przez program: rozmiar okna zmienia się chwilę później, więc poprawiamy położenie kilka razy
   pelnyEkran(b) { MILK.pelny = !!b; document.body.classList.toggle('pelny', MILK.pelny); for (const t of [0, 120, 400]) setTimeout(() => { szklo.milkPrzesun(); if (WIZ.on) wizRozmiar(); }, t); },
   milkPrzesun() { if (MILK.on) wyslij({ t: 'md_rect', ...milkProstokat() }); },
-  spotify(s) { SP.stan = s; if (SP.zakladka === 'spotify') spRysuj(); },
+  spotify(s) { const byl = spZalogowany(); SP.stan = s; if (!spZalogowany()) { SP.widok = null; SP.spis = null; $('#spQ').value = ''; } if (SP.zakladka === 'spotify') { spRysujSpis(); if (byl !== spZalogowany()) spRysujWidok(); } },
+  spSpis(s) { SP.spis = s; if (SP.zakladka === 'spotify') spRysujSpis(); },
+  spWidok(w) {
+    SP.widok = w;
+    // powrót do wcześniejszego szukania: pole i zakres pokazują, czego dotyczą wyniki
+    if (w && w.rodzaj === 'szukaj' && document.activeElement !== $('#spQ')) { $('#spQ').value = w.q; SP.zakres = w.zakres; }
+    if (SP.zakladka === 'spotify') { spRysujSpis(); spRysujWidok(); }
+  },
   widmo(v) { ODTW.widmo = v; },
   wizFala(b) { if (WIZ.on && window.SzkloWiz) SzkloWiz.fala(b); },
   presetKomunikat(t, ok) {

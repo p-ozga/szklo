@@ -1,10 +1,10 @@
 [workspace]
 resolver = "2"
-members = ["core", "cli", "plugin", "app-pc", "app-android/rust", "tools/vsthost"]
+members = ["core", "cli", "plugin", "spotify", "app-pc", "app-android/rust", "tools/vsthost"]
 default-members = ["core", "cli"]
 
 [workspace.package]
-version = "0.6.0"
+version = "0.7.0"
 edition = "2021"
 authors = ["Pawel Ozga"]
 license = "MIT"

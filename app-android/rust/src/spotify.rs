@@ -12,7 +12,7 @@
 //! Uwaga prawna: librespot to nieoficjalny klient Spotify (wymaga Premium) – zgoda użytkownika 2026-11-22.
 
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
-use librespot_connect::{ConnectConfig, Spirc};
+use librespot_connect::{ConnectConfig, LoadRequest, LoadRequestOptions, PlayingTrack, Spirc};
 use librespot_core::{authentication::Credentials, cache::Cache, config::DeviceType, session::Session, SessionConfig};
 use librespot_playback::audio_backend::{Sink, SinkResult};
 use librespot_playback::config::PlayerConfig;
@@ -143,9 +143,122 @@ pub fn stop() {
     set_status("idle");
 }
 
+// ───────────────────────────── Biblioteka i szukanie (wspólny moduł szklo-spotify) ─────────────────────────────
+
+fn biblioteka(cache_dir: &str) -> &'static szklo_spotify::Kontroler {
+    static K: OnceLock<szklo_spotify::Kontroler> = OnceLock::new();
+    K.get_or_init(|| szklo_spotify::Kontroler::nowy(Some(PathBuf::from(cache_dir).join("spotify"))))
+}
+
+fn bib_blad() -> &'static Mutex<String> {
+    static B: OnceLock<Mutex<String>> = OnceLock::new();
+    B.get_or_init(|| Mutex::new(String::new()))
+}
+fn bib_ustaw_blad(t: String) {
+    if let Ok(mut g) = bib_blad().lock() {
+        *g = t;
+    }
+}
+
+/// Sterowanie odbiornikiem (granie utworów wybranych w bibliotece), gdy Spotify Connect działa.
+fn spirc_cell() -> &'static Mutex<Option<Arc<Spirc>>> {
+    static S: OnceLock<Mutex<Option<Arc<Spirc>>>> = OnceLock::new();
+    S.get_or_init(|| Mutex::new(None))
+}
+fn ustaw_spirc(s: Option<Arc<Spirc>>) {
+    *spirc_cell().lock().unwrap_or_else(|e| e.into_inner()) = s;
+}
+
+fn zalogowany(cache_dir: &str) -> bool {
+    PathBuf::from(cache_dir).join("spotify").join("credentials.json").exists()
+}
+
+/// Polecenie biblioteki. Gdy odbiornik nie działa, łączy się sam zapisanym logowaniem (bez odtwarzania).
+pub fn bib_rozkaz(cache_dir: String, polecenie: String) {
+    let Ok(m) = serde_json::from_str::<serde_json::Value>(&polecenie) else { return };
+    let k = biblioteka(&cache_dir);
+    if k.polaczony() {
+        k.rozkaz(&m);
+        return;
+    }
+    if !zalogowany(&cache_dir) {
+        return;
+    }
+    static RT: OnceLock<Option<tokio::runtime::Runtime>> = OnceLock::new();
+    static JEDNO: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+    let rt = RT.get_or_init(|| tokio::runtime::Builder::new_multi_thread().worker_threads(1).thread_name("szklo-biblioteka").enable_all().build().ok());
+    let Some(rt) = rt else { return };
+    rt.spawn(async move {
+        let _jedno = JEDNO.lock().await;
+        if !k.polaczony() {
+            match polacz_biblioteke(&cache_dir).await {
+                Ok(s) => {
+                    bib_ustaw_blad(String::new());
+                    k.polacz(s);
+                }
+                Err(e) => {
+                    log::warn!("biblioteka: {e}");
+                    bib_ustaw_blad(format!("Brak połączenia ze Spotify: {e}"));
+                }
+            }
+        }
+        k.rozkaz(&m);
+    });
+}
+
+async fn polacz_biblioteke(cache_dir: &str) -> Result<Session, String> {
+    let base = PathBuf::from(cache_dir).join("spotify");
+    let cache = Cache::new(Some(base), None, None, None).map_err(|e| e.to_string())?;
+    let c = cache.credentials().ok_or("brak zapisanego logowania")?;
+    let s = Session::new(SessionConfig { client_id: CLIENT_ID.to_string(), ..SessionConfig::default() }, None);
+    match tokio::time::timeout(Duration::from_secs(20), s.connect(c, false)).await {
+        Ok(Ok(())) => Ok(s),
+        Ok(Err(e)) => Err(e.to_string()),
+        Err(_) => Err("Spotify nie odpowiada".into()),
+    }
+}
+
+/// Stan biblioteki jako JSON; pusty tekst, gdy od podanych wersji nic się nie zmieniło.
+pub fn bib_stan(cache_dir: &str, ws: i64, ww: i64) -> String {
+    static OSTATNI: Mutex<(bool, String)> = Mutex::new((true, String::new()));
+    let k = biblioteka(cache_dir);
+    let (s, w) = k.wersje();
+    let blad = bib_blad().lock().map(|g| g.clone()).unwrap_or_default();
+    let inne = (zalogowany(cache_dir), blad);
+    let zmiana = OSTATNI.lock().map(|mut o| std::mem::replace(&mut *o, inne.clone()) != inne).unwrap_or(true);
+    let (zs, zw) = (s as i64 != ws, w as i64 != ww);
+    if !zs && !zw && !zmiana {
+        return String::new();
+    }
+    let mut t = format!("{{\"ws\":{s},\"ww\":{w},\"logowanie\":{},\"blad\":{}", inne.0, serde_json::Value::from(inne.1));
+    if zs {
+        t.push_str(",\"spis\":");
+        t.push_str(&k.spis_json());
+    }
+    if zw {
+        t.push_str(",\"widok\":");
+        t.push_str(&k.widok_json());
+    }
+    t.push('}');
+    t
+}
+
+/// Gra listę adresów (JSON) przez odbiornik „Szkło”. false – odbiornik nie działa.
+pub fn bib_graj(adresy: &str) -> bool {
+    let Ok(v) = serde_json::from_str::<Vec<String>>(adresy) else { return false };
+    let v: Vec<String> = v.into_iter().filter(|u| u.starts_with("spotify:track:") || u.starts_with("spotify:episode:")).collect();
+    let s = spirc_cell().lock().unwrap_or_else(|e| e.into_inner()).clone();
+    let (Some(s), false) = (s, v.is_empty()) else { return false };
+    crate::diag::KLUCZ_ODRZUCONY.store(false, Ordering::Relaxed);
+    let opcje = LoadRequestOptions { start_playing: true, playing_track: Some(PlayingTrack::Index(0)), ..Default::default() };
+    s.activate().and_then(|_| s.load(LoadRequest::from_tracks(v, opcje))).map_err(|e| log::warn!("granie z biblioteki: {e}")).is_ok()
+}
+
 /// Usuwa zapisane poświadczenia (wylogowanie).
 pub fn logout(cache_dir: String) {
     stop();
+    biblioteka(&cache_dir).wyloguj();
+    bib_ustaw_blad(String::new());
     let _ = std::fs::remove_file(PathBuf::from(cache_dir).join("spotify").join("credentials.json"));
 }
 
@@ -210,6 +323,20 @@ async fn run(params: Arc<SharedParams>, meters: Arc<SharedMeters>, cache_dir: Pa
     let (spirc, task) = Spirc::new(connect_config, session.clone(), credentials, player, mixer)
         .await
         .map_err(|e| format!("Spotify Connect: {e}"))?;
+    let spirc = Arc::new(spirc);
+    ustaw_spirc(Some(spirc.clone()));
+    let bib = biblioteka(&cache_dir.to_string_lossy());
+    bib_ustaw_blad(String::new());
+    bib.polacz(session.clone());
+    // koniec odbiornika (każdą drogą): biblioteka połączy się sama przy następnym poleceniu
+    struct Koniec(&'static szklo_spotify::Kontroler);
+    impl Drop for Koniec {
+        fn drop(&mut self) {
+            ustaw_spirc(None);
+            self.0.rozlacz();
+        }
+    }
+    let _koniec = Koniec(bib);
     set_status("ready");
     log::info!("konto: typ {}", session.get_user_attribute("type").unwrap_or_else(|| "?".into()));
     let mut task = Box::pin(task);

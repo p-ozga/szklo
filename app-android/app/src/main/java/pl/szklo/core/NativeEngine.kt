@@ -167,6 +167,12 @@ class NativeEngine private constructor(
         @JvmStatic external fun nativeSpotifyLogout(cacheDir: String)
         /** `idle | connecting | login <url> | ready | playing | error <opis>` */
         @JvmStatic external fun nativeSpotifyStatus(): String
+        /** Polecenie biblioteki Spotify (JSON). */
+        @JvmStatic external fun nativeSpotifyLib(cacheDir: String, cmd: String)
+        /** Stan biblioteki (JSON) albo "", gdy od wersji [ws]/[ww] nic się nie zmieniło. */
+        @JvmStatic external fun nativeSpotifyLibState(cacheDir: String, ws: Long, ww: Long): String
+        /** Gra utwory (JSON: lista adresów) przez odbiornik „Szkło”. */
+        @JvmStatic external fun nativeSpotifyPlay(uris: String): Boolean
         /** Ostatnie linie dziennika Spotify (rdzeń). */
         @JvmStatic external fun nativeSpotifyLog(): String
     }

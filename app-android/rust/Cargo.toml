@@ -10,6 +10,7 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 szklo-core = { path = "../../core" }
+szklo-spotify = { path = "../../spotify" }
 jni = { version = "0.21", default-features = false }
 
 # Spotify Connect (odbiornik „Szkło”): otwarty klient librespot, TLS w czystym Ruście (bez OpenSSL na Androidzie).

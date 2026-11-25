@@ -3,9 +3,10 @@
 Domowy procesor dźwięku (PC + Android): 32 moduły (naprawa, dynamika, bas, barwa, stereo, wyjście), każdy z on/off i suwakiem
 mocy 0–100%, sufit −1,0 dBTP pod słuchawki Bluetooth. Projekt filtrów: `spec/koncepcja_filtrow_v1.md`.
 
-Na odwrocie okna (PC) jest wbudowany odtwarzacz: pliki z dysku, playlista, zegar i analizator widma, Spotify (Premium)
-odtwarzane wprost przez silnik Szkła oraz wbudowana wizualizacja muzyki (silnik Butterchurn, własne presety); MilkDrop 3
-można nadal uruchomić jako osobny program. Wizualizacja jest też w aplikacji na Androida.
+Na odwrocie okna (PC) jest wbudowany odtwarzacz: pliki z dysku, playlista, zegar i analizator widma, biblioteka Spotify
+(polubione utwory, playlisty z folderami, albumy, wykonawcy, podcasty) z szukaniem w zaznaczonej liście, w bibliotece albo
+w katalogu Spotify (muzyka gra w aplikacji Spotify, Szkło ją przetwarza) oraz wbudowana wizualizacja muzyki (silnik Butterchurn, własne presety); MilkDrop 3
+można nadal uruchomić jako osobny program. Wizualizacja i biblioteka Spotify są też w aplikacji na Androida.
 
 Sześć presetów, w tym **Skupienie** i **Wyciszenie** (filtry Mniej słów, Równy strumień, Szum tła – opis i źródła:
 `docs/skupienie.md`). Filtry są strojone miarą słyszalności, nie samą zmianą sygnału: `tools/sluch/`.
@@ -18,6 +19,7 @@ Sześć presetów, w tym **Skupienie** i **Wyciszenie** (filtry Mniej słów, R�
 | `app-pc/` | `Szklo.exe` – aplikacja (WebView2, odwracanie okna, zasobnik, silnik w aplikacji albo sterowanie wtyczką, odtwarzacz) |
 | `app-android/` | aplikacja Android (Jetpack Compose) + most JNI `app-android/rust` (w tym odbiornik Spotify Connect) |
 | `tools/vsthost/` | test dymny wtyczki bez Equalizer APO |
+| `spotify/` | biblioteka Spotify i wyszukiwanie (tylko odczyt) – wspólne dla PC i Androida |
 | `wspolne/wizualizacja/` | wizualizacja wspólna dla PC i Androida: silnik Butterchurn (MIT) + własne presety |
 | `tools/sluch/` | badanie, czy filtry słychać: model słuchu, 15 gatunków (utwory pobiera się osobno) |
 | `tools/hrtf/` | generator tablic filtra „Binauralny” z pomiarów MIT KEMAR |
@@ -57,8 +59,8 @@ pomiarów HRTF manekina KEMAR (Bill Gardner i Keith Martin, MIT Media Lab, © 19
 w aplikacjach: odwrót → „O programie i licencje”.
 
 Spotify i Spotify Connect to znaki towarowe Spotify AB, VST – Steinberg Media Technologies GmbH. Szkło nie jest powiązane
-z nimi ani przez nie wspierane. Odtwarzanie Spotify korzysta z librespot – nieoficjalnego klienta; wymaga konta Premium
-i odbywa się na ryzyko użytkownika. MilkDrop 3 (milkdrop2077) nie jest częścią Szkła.
+z nimi ani przez nie wspierane. Biblioteka i odtwarzanie Spotify korzystają z librespot – nieoficjalnego klienta; wymagają konta Premium
+i odbywają się na ryzyko użytkownika. MilkDrop 3 (milkdrop2077) nie jest częścią Szkła.
 
 ## Licencja
 

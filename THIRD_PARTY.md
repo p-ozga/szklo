@@ -29,8 +29,8 @@ Biblioteki programu na PC (317):
   arrayvec 0.7.8 — MIT OR Apache-2.0 — bluss — https://github.com/bluss/arrayvec
   async-trait 0.1.92 — MIT OR Apache-2.0 — David Tolnay — https://github.com/dtolnay/async-trait
   atomic-waker 1.1.2 — Apache-2.0 OR MIT — Stjepan Glavina, Contributors to futures-rs — https://github.com/smol-rs/atomic-waker
-  base64 0.23.1 — MIT OR Apache-2.0 — Marshall Pierce — https://github.com/marshallpierce/rust-base64
   base64 0.22.1 — MIT OR Apache-2.0 — Marshall Pierce — https://github.com/marshallpierce/rust-base64
+  base64 0.23.1 — MIT OR Apache-2.0 — Marshall Pierce — https://github.com/marshallpierce/rust-base64
   base64ct 1.8.3 — Apache-2.0 OR MIT — RustCrypto Developers — https://github.com/RustCrypto/formats
   bitflags 2.13.2 — MIT OR Apache-2.0 — The Rust Project Developers — https://github.com/bitflags/bitflags
   bitflags 1.3.2 — MIT/Apache-2.0 — The Rust Project Developers — https://github.com/bitflags/bitflags
@@ -46,8 +46,8 @@ Biblioteki programu na PC (317):
   cookie 0.18.2 — MIT OR Apache-2.0 — Sergio Benitez, Alex Crichton — https://github.com/SergioBenitez/cookie-rs
   core_detect 1.0.0 — MIT/Apache-2.0 — Thom Chiovoloni — https://github.com/thomcc/core_detect
   cpal 0.16.0 — Apache-2.0 — https://github.com/rustaudio/cpal
-  cpufeatures 0.3.1 — MIT OR Apache-2.0 — RustCrypto Developers — https://github.com/RustCrypto/utils
   cpufeatures 0.2.17 — MIT OR Apache-2.0 — RustCrypto Developers — https://github.com/RustCrypto/utils
+  cpufeatures 0.3.1 — MIT OR Apache-2.0 — RustCrypto Developers — https://github.com/RustCrypto/utils
   crc32fast 1.5.5 — MIT OR Apache-2.0 — Sam Rijs, Alex Crichton — https://github.com/srijs/rust-crc32fast
   crossbeam-channel 0.5.17 — MIT OR Apache-2.0 — https://github.com/crossbeam-rs/crossbeam
   crossbeam-utils 0.8.23 — MIT OR Apache-2.0 — https://github.com/crossbeam-rs/crossbeam
@@ -83,8 +83,8 @@ Biblioteki programu na PC (317):
   getrandom 0.3.4 — MIT OR Apache-2.0 — The Rand Project Developers — https://github.com/rust-random/getrandom
   governor 0.10.4 — MIT — Andreas Fuchs — https://github.com/boinkor-net/governor.git
   h2 0.4.20 — MIT — Carl Lerche, Sean McArthur — https://github.com/hyperium/h2
-  hashbrown 0.17.1 — MIT OR Apache-2.0 — https://github.com/rust-lang/hashbrown
   hashbrown 0.16.1 — MIT OR Apache-2.0 — Amanieu d'Antras — https://github.com/rust-lang/hashbrown
+  hashbrown 0.17.1 — MIT OR Apache-2.0 — https://github.com/rust-lang/hashbrown
   headers 0.4.2 — MIT — Sean McArthur — https://github.com/hyperium/headers
   headers-core 0.3.0 — MIT — Sean McArthur — https://github.com/hyperium/headers
   hmac 0.12.1 — MIT OR Apache-2.0 — RustCrypto Developers — https://github.com/RustCrypto/MACs
@@ -168,9 +168,9 @@ Biblioteki programu na PC (317):
   quinn-proto 0.11.19 — MIT OR Apache-2.0 — https://github.com/quinn-rs/quinn
   quinn-udp 0.5.16 — MIT OR Apache-2.0 — https://github.com/quinn-rs/quinn
   quote 1.0.47 — MIT OR Apache-2.0 — David Tolnay — https://github.com/dtolnay/quote
-  rand 0.10.4 — MIT OR Apache-2.0 — The Rand Project Developers, The Rust Project Developers — https://github.com/rust-random/rand
   rand 0.8.8 — MIT OR Apache-2.0 — The Rand Project Developers, The Rust Project Developers — https://github.com/rust-random/rand
   rand 0.9.5 — MIT OR Apache-2.0 — The Rand Project Developers, The Rust Project Developers — https://github.com/rust-random/rand
+  rand 0.10.4 — MIT OR Apache-2.0 — The Rand Project Developers, The Rust Project Developers — https://github.com/rust-random/rand
   rand_chacha 0.3.1 — MIT OR Apache-2.0 — The Rand Project Developers, The Rust Project Developers, The CryptoCorrosion Contributors — https://github.com/rust-random/rand
   rand_chacha 0.9.0 — MIT OR Apache-2.0 — The Rand Project Developers, The Rust Project Developers, The CryptoCorrosion Contributors — https://github.com/rust-random/rand
   rand_core 0.10.1 — MIT OR Apache-2.0 — The Rand Project Developers — https://github.com/rust-random/rand_core
@@ -188,13 +188,13 @@ Biblioteki programu na PC (317):
   rubato 0.16.2 — MIT — HEnquist — https://github.com/HEnquist/rubato
   rustc-hash 2.1.3 — Apache-2.0 OR MIT — The Rust Project Developers — https://github.com/rust-lang/rustc-hash
   rustfft 6.4.1 — MIT OR Apache-2.0 — Allen Welkie, Elliott Mahler — https://github.com/ejmahler/RustFFT
-  rustls 0.23.46 — Apache-2.0 OR ISC OR MIT — https://github.com/rustls/rustls
   rustls 0.22.4 — Apache-2.0 OR ISC OR MIT — https://github.com/rustls/rustls
+  rustls 0.23.46 — Apache-2.0 OR ISC OR MIT — https://github.com/rustls/rustls
   rustls-native-certs 0.7.3 — Apache-2.0 OR ISC OR MIT — https://github.com/rustls/rustls-native-certs
   rustls-pemfile 2.2.0 — Apache-2.0 OR ISC OR MIT — https://github.com/rustls/pemfile
   rustls-pki-types 1.16.0 — MIT OR Apache-2.0 — https://github.com/rustls/pki-types
-  rustls-webpki 0.103.17 — ISC — https://github.com/rustls/webpki
   rustls-webpki 0.102.8 — ISC — https://github.com/rustls/webpki
+  rustls-webpki 0.103.17 — ISC — https://github.com/rustls/webpki
   ryu 1.0.23 — Apache-2.0 OR BSL-1.0 — David Tolnay — https://github.com/dtolnay/ryu
   schannel 0.1.30 — MIT — Steven Fackler, Steffen Butzer — https://github.com/steffengy/schannel-rs
   scopeguard 1.2.0 — MIT OR Apache-2.0 — bluss — https://github.com/bluss/scopeguard
@@ -235,15 +235,15 @@ Biblioteki programu na PC (317):
   symphonia-format-riff 0.5.5 — MPL-2.0 — Philip Deljanov, dedobbin — https://github.com/pdeljanov/Symphonia
   symphonia-metadata 0.5.5 — MPL-2.0 — Philip Deljanov — https://github.com/pdeljanov/Symphonia
   symphonia-utils-xiph 0.5.5 — MPL-2.0 — Philip Deljanov — https://github.com/pdeljanov/Symphonia
-  syn 2.0.119 — MIT OR Apache-2.0 — David Tolnay — https://github.com/dtolnay/syn
   syn 3.0.10 — MIT OR Apache-2.0 — David Tolnay — https://github.com/dtolnay/syn
+  syn 2.0.119 — MIT OR Apache-2.0 — David Tolnay — https://github.com/dtolnay/syn
   sync_wrapper 1.0.2 — Apache-2.0 — Actyx AG — https://github.com/Actyx/sync_wrapper
   synstructure 0.14.0 — MIT — Nika Layzell — https://github.com/mystor/synstructure
   sysinfo 0.36.1 — MIT — Guillaume Gomez — https://github.com/GuillaumeGomez/sysinfo
   tao 0.37.3 — Apache-2.0 — Tauri Programme within The Commons Conservancy, The winit contributors — https://github.com/tauri-apps/tao
   tempfile 3.27.0 — MIT OR Apache-2.0 — Steven Allen, The Rust Project Developers, Ashley Mannix — https://github.com/Stebalien/tempfile
-  thiserror 1.0.69 — MIT OR Apache-2.0 — David Tolnay — https://github.com/dtolnay/thiserror
   thiserror 2.0.21 — MIT OR Apache-2.0 — David Tolnay — https://github.com/dtolnay/thiserror
+  thiserror 1.0.69 — MIT OR Apache-2.0 — David Tolnay — https://github.com/dtolnay/thiserror
   thiserror-impl 1.0.69 — MIT OR Apache-2.0 — David Tolnay — https://github.com/dtolnay/thiserror
   thiserror-impl 2.0.21 — MIT OR Apache-2.0 — David Tolnay — https://github.com/dtolnay/thiserror
   time 0.3.55 — MIT OR Apache-2.0 — Jacob Pratt, Time contributors — https://github.com/time-rs/time
@@ -281,51 +281,51 @@ Biblioteki programu na PC (317):
   want 0.3.2 — MIT — Sean McArthur — https://github.com/seanmonstar/want
   web-time 1.1.0 — MIT OR Apache-2.0 — https://github.com/daxpedda/web-time
   webpki 0.22.4 — plik licencji: LICENSE — Brian Smith — https://github.com/briansmith/webpki
-  webpki-roots 1.0.12 — CDLA-Permissive-2.0 — https://github.com/rustls/webpki-roots
   webpki-roots 0.26.11 — CDLA-Permissive-2.0 — https://github.com/rustls/webpki-roots
+  webpki-roots 1.0.12 — CDLA-Permissive-2.0 — https://github.com/rustls/webpki-roots
   webview2-com 0.39.1 — MIT — https://github.com/wravery/webview2-rs
   webview2-com-macros 0.8.1 — MIT — https://github.com/wravery/webview2-rs
   webview2-com-sys 0.39.1 — MIT — https://github.com/wravery/webview2-rs
   winapi 0.3.9 — MIT/Apache-2.0 — Peter Atashian — https://github.com/retep998/winapi-rs
   window-vibrancy 0.6.0 — Apache-2.0 OR MIT — Tauri Programme within The Commons Conservancy — https://github.com/tauri-apps/tauri-plugin-vibrancy
-  windows 0.61.3 — MIT OR Apache-2.0 — Microsoft — https://github.com/microsoft/windows-rs
-  windows 0.54.0 — MIT OR Apache-2.0 — Microsoft — https://github.com/microsoft/windows-rs
-  windows 0.58.0 — MIT OR Apache-2.0 — Microsoft — https://github.com/microsoft/windows-rs
   windows 0.62.2 — MIT OR Apache-2.0 — https://github.com/microsoft/windows-rs
+  windows 0.61.3 — MIT OR Apache-2.0 — Microsoft — https://github.com/microsoft/windows-rs
+  windows 0.58.0 — MIT OR Apache-2.0 — Microsoft — https://github.com/microsoft/windows-rs
+  windows 0.54.0 — MIT OR Apache-2.0 — Microsoft — https://github.com/microsoft/windows-rs
   windows-collections 0.2.0 — MIT OR Apache-2.0 — https://github.com/microsoft/windows-rs
   windows-collections 0.3.2 — MIT OR Apache-2.0 — https://github.com/microsoft/windows-rs
   windows-core 0.58.0 — MIT OR Apache-2.0 — Microsoft — https://github.com/microsoft/windows-rs
   windows-core 0.61.2 — MIT OR Apache-2.0 — Microsoft — https://github.com/microsoft/windows-rs
-  windows-core 0.54.0 — MIT OR Apache-2.0 — Microsoft — https://github.com/microsoft/windows-rs
   windows-core 0.62.2 — MIT OR Apache-2.0 — https://github.com/microsoft/windows-rs
-  windows-future 0.2.1 — MIT OR Apache-2.0 — https://github.com/microsoft/windows-rs
+  windows-core 0.54.0 — MIT OR Apache-2.0 — Microsoft — https://github.com/microsoft/windows-rs
   windows-future 0.3.2 — MIT OR Apache-2.0 — https://github.com/microsoft/windows-rs
+  windows-future 0.2.1 — MIT OR Apache-2.0 — https://github.com/microsoft/windows-rs
   windows-implement 0.58.0 — MIT OR Apache-2.0 — Microsoft — https://github.com/microsoft/windows-rs
   windows-implement 0.60.2 — MIT OR Apache-2.0 — https://github.com/microsoft/windows-rs
   windows-interface 0.58.0 — MIT OR Apache-2.0 — Microsoft — https://github.com/microsoft/windows-rs
   windows-interface 0.59.3 — MIT OR Apache-2.0 — https://github.com/microsoft/windows-rs
   windows-link 0.1.3 — MIT OR Apache-2.0 — Microsoft — https://github.com/microsoft/windows-rs
   windows-link 0.2.1 — MIT OR Apache-2.0 — https://github.com/microsoft/windows-rs
-  windows-numerics 0.3.1 — MIT OR Apache-2.0 — https://github.com/microsoft/windows-rs
   windows-numerics 0.2.0 — MIT OR Apache-2.0 — https://github.com/microsoft/windows-rs
+  windows-numerics 0.3.1 — MIT OR Apache-2.0 — https://github.com/microsoft/windows-rs
   windows-registry 0.6.1 — MIT OR Apache-2.0 — https://github.com/microsoft/windows-rs
-  windows-result 0.1.2 — MIT OR Apache-2.0 — Microsoft — https://github.com/microsoft/windows-rs
   windows-result 0.4.1 — MIT OR Apache-2.0 — https://github.com/microsoft/windows-rs
   windows-result 0.3.4 — MIT OR Apache-2.0 — Microsoft — https://github.com/microsoft/windows-rs
+  windows-result 0.1.2 — MIT OR Apache-2.0 — Microsoft — https://github.com/microsoft/windows-rs
   windows-result 0.2.0 — MIT OR Apache-2.0 — Microsoft — https://github.com/microsoft/windows-rs
-  windows-strings 0.5.1 — MIT OR Apache-2.0 — https://github.com/microsoft/windows-rs
   windows-strings 0.1.0 — MIT OR Apache-2.0 — Microsoft — https://github.com/microsoft/windows-rs
+  windows-strings 0.5.1 — MIT OR Apache-2.0 — https://github.com/microsoft/windows-rs
   windows-strings 0.4.2 — MIT OR Apache-2.0 — Microsoft — https://github.com/microsoft/windows-rs
   windows-sys 0.60.2 — MIT OR Apache-2.0 — Microsoft — https://github.com/microsoft/windows-rs
-  windows-sys 0.61.2 — MIT OR Apache-2.0 — https://github.com/microsoft/windows-rs
   windows-sys 0.59.0 — MIT OR Apache-2.0 — Microsoft — https://github.com/microsoft/windows-rs
+  windows-sys 0.61.2 — MIT OR Apache-2.0 — https://github.com/microsoft/windows-rs
   windows-targets 0.53.5 — MIT OR Apache-2.0 — https://github.com/microsoft/windows-rs
   windows-targets 0.52.6 — MIT OR Apache-2.0 — Microsoft — https://github.com/microsoft/windows-rs
-  windows-threading 0.2.1 — MIT OR Apache-2.0 — https://github.com/microsoft/windows-rs
   windows-threading 0.1.0 — MIT OR Apache-2.0 — Microsoft — https://github.com/microsoft/windows-rs
+  windows-threading 0.2.1 — MIT OR Apache-2.0 — https://github.com/microsoft/windows-rs
   windows-version 0.1.7 — MIT OR Apache-2.0 — https://github.com/microsoft/windows-rs
-  windows_x86_64_msvc 0.52.6 — MIT OR Apache-2.0 — Microsoft — https://github.com/microsoft/windows-rs
   windows_x86_64_msvc 0.53.1 — MIT OR Apache-2.0 — https://github.com/microsoft/windows-rs
+  windows_x86_64_msvc 0.52.6 — MIT OR Apache-2.0 — Microsoft — https://github.com/microsoft/windows-rs
   writeable 0.6.4 — Unicode-3.0 — The ICU4X Project Developers — https://github.com/unicode-org/icu4x
   wry 0.57.3 — Apache-2.0 OR MIT — Tauri Programme within The Commons Conservancy — https://github.com/tauri-apps/wry
   yoke 0.8.4 — Unicode-3.0 — Manish Goregaokar — https://github.com/unicode-org/icu4x
@@ -415,8 +415,8 @@ Biblioteki rdzenia (Rust) (291):
   base64 0.22.1 — MIT OR Apache-2.0 — Marshall Pierce — https://github.com/marshallpierce/rust-base64
   base64 0.23.1 — MIT OR Apache-2.0 — Marshall Pierce — https://github.com/marshallpierce/rust-base64
   base64ct 1.8.3 — Apache-2.0 OR MIT — RustCrypto Developers — https://github.com/RustCrypto/formats
-  bitflags 1.3.2 — MIT/Apache-2.0 — The Rust Project Developers — https://github.com/bitflags/bitflags
   bitflags 2.13.2 — MIT OR Apache-2.0 — The Rust Project Developers — https://github.com/bitflags/bitflags
+  bitflags 1.3.2 — MIT/Apache-2.0 — The Rust Project Developers — https://github.com/bitflags/bitflags
   block-buffer 0.10.4 — MIT OR Apache-2.0 — RustCrypto Developers — https://github.com/RustCrypto/utils
   bytemuck 1.25.2 — Zlib OR Apache-2.0 OR MIT — Lokathor — https://github.com/Lokathor/bytemuck
   byteorder 1.5.0 — Unlicense OR MIT — Andrew Gallant — https://github.com/BurntSushi/byteorder
@@ -459,8 +459,8 @@ Biblioteki rdzenia (Rust) (291):
   futures-timer 3.0.4 — MIT/Apache-2.0 — Alex Crichton — https://github.com/async-rs/futures-timer
   futures-util 0.3.34 — MIT OR Apache-2.0 — https://github.com/rust-lang/futures-rs
   generic-array 0.14.7 — MIT — Bartłomiej Kamiński, Aaron Trent — https://github.com/fizyk20/generic-array.git
-  getrandom 0.2.17 — MIT OR Apache-2.0 — The Rand Project Developers — https://github.com/rust-random/getrandom
   getrandom 0.4.3 — MIT OR Apache-2.0 — The Rand Project Developers — https://github.com/rust-random/getrandom
+  getrandom 0.2.17 — MIT OR Apache-2.0 — The Rand Project Developers — https://github.com/rust-random/getrandom
   getrandom 0.3.4 — MIT OR Apache-2.0 — The Rand Project Developers — https://github.com/rust-random/getrandom
   governor 0.10.4 — MIT — Andreas Fuchs — https://github.com/boinkor-net/governor.git
   h2 0.4.20 — MIT — Carl Lerche, Sean McArthur — https://github.com/hyperium/h2
@@ -563,14 +563,14 @@ Biblioteki rdzenia (Rust) (291):
   quinn-proto 0.11.19 — MIT OR Apache-2.0 — https://github.com/quinn-rs/quinn
   quinn-udp 0.5.16 — MIT OR Apache-2.0 — https://github.com/quinn-rs/quinn
   quote 1.0.47 — MIT OR Apache-2.0 — David Tolnay — https://github.com/dtolnay/quote
-  rand 0.8.8 — MIT OR Apache-2.0 — The Rand Project Developers, The Rust Project Developers — https://github.com/rust-random/rand
   rand 0.10.4 — MIT OR Apache-2.0 — The Rand Project Developers, The Rust Project Developers — https://github.com/rust-random/rand
+  rand 0.8.8 — MIT OR Apache-2.0 — The Rand Project Developers, The Rust Project Developers — https://github.com/rust-random/rand
   rand 0.9.5 — MIT OR Apache-2.0 — The Rand Project Developers, The Rust Project Developers — https://github.com/rust-random/rand
   rand_chacha 0.9.0 — MIT OR Apache-2.0 — The Rand Project Developers, The Rust Project Developers, The CryptoCorrosion Contributors — https://github.com/rust-random/rand
   rand_chacha 0.3.1 — MIT OR Apache-2.0 — The Rand Project Developers, The Rust Project Developers, The CryptoCorrosion Contributors — https://github.com/rust-random/rand
-  rand_core 0.10.1 — MIT OR Apache-2.0 — The Rand Project Developers — https://github.com/rust-random/rand_core
   rand_core 0.6.4 — MIT OR Apache-2.0 — The Rand Project Developers, The Rust Project Developers — https://github.com/rust-random/rand
   rand_core 0.9.5 — MIT OR Apache-2.0 — The Rand Project Developers, The Rust Project Developers — https://github.com/rust-random/rand
+  rand_core 0.10.1 — MIT OR Apache-2.0 — The Rand Project Developers — https://github.com/rust-random/rand_core
   rand_distr 0.5.1 — MIT OR Apache-2.0 — The Rand Project Developers — https://github.com/rust-random/rand_distr
   rand_pcg 0.10.3 — MIT OR Apache-2.0 — The Rand Project Developers — https://github.com/rust-random/rngs
   raw-window-handle 0.6.2 — MIT OR Apache-2.0 OR Zlib — Osspial — https://github.com/rust-windowing/raw-window-handle
@@ -584,13 +584,13 @@ Biblioteki rdzenia (Rust) (291):
   rustc-hash 2.1.3 — Apache-2.0 OR MIT — The Rust Project Developers — https://github.com/rust-lang/rustc-hash
   rustfft 6.4.1 — MIT OR Apache-2.0 — Allen Welkie, Elliott Mahler — https://github.com/ejmahler/RustFFT
   rustix 1.1.6 — Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT — Dan Gohman, Jakub Konka — https://github.com/bytecodealliance/rustix
-  rustls 0.23.46 — Apache-2.0 OR ISC OR MIT — https://github.com/rustls/rustls
   rustls 0.22.4 — Apache-2.0 OR ISC OR MIT — https://github.com/rustls/rustls
+  rustls 0.23.46 — Apache-2.0 OR ISC OR MIT — https://github.com/rustls/rustls
   rustls-native-certs 0.7.3 — Apache-2.0 OR ISC OR MIT — https://github.com/rustls/rustls-native-certs
   rustls-pemfile 2.2.0 — Apache-2.0 OR ISC OR MIT — https://github.com/rustls/pemfile
   rustls-pki-types 1.16.0 — MIT OR Apache-2.0 — https://github.com/rustls/pki-types
-  rustls-webpki 0.102.8 — ISC — https://github.com/rustls/webpki
   rustls-webpki 0.103.17 — ISC — https://github.com/rustls/webpki
+  rustls-webpki 0.102.8 — ISC — https://github.com/rustls/webpki
   rustversion 1.0.23 — MIT OR Apache-2.0 — David Tolnay — https://github.com/dtolnay/rustversion
   ryu 1.0.23 — Apache-2.0 OR BSL-1.0 — David Tolnay — https://github.com/dtolnay/ryu
   scopeguard 1.2.0 — MIT OR Apache-2.0 — bluss — https://github.com/bluss/scopeguard
@@ -631,14 +631,14 @@ Biblioteki rdzenia (Rust) (291):
   symphonia-format-riff 0.5.5 — MPL-2.0 — Philip Deljanov, dedobbin — https://github.com/pdeljanov/Symphonia
   symphonia-metadata 0.5.5 — MPL-2.0 — Philip Deljanov — https://github.com/pdeljanov/Symphonia
   symphonia-utils-xiph 0.5.5 — MPL-2.0 — Philip Deljanov — https://github.com/pdeljanov/Symphonia
-  syn 2.0.119 — MIT OR Apache-2.0 — David Tolnay — https://github.com/dtolnay/syn
   syn 3.0.10 — MIT OR Apache-2.0 — David Tolnay — https://github.com/dtolnay/syn
+  syn 2.0.119 — MIT OR Apache-2.0 — David Tolnay — https://github.com/dtolnay/syn
   sync_wrapper 1.0.2 — Apache-2.0 — Actyx AG — https://github.com/Actyx/sync_wrapper
   synstructure 0.14.0 — MIT — Nika Layzell — https://github.com/mystor/synstructure
   sysinfo 0.36.1 — MIT — Guillaume Gomez — https://github.com/GuillaumeGomez/sysinfo
   tempfile 3.27.0 — MIT OR Apache-2.0 — Steven Allen, The Rust Project Developers, Ashley Mannix — https://github.com/Stebalien/tempfile
-  thiserror 2.0.21 — MIT OR Apache-2.0 — David Tolnay — https://github.com/dtolnay/thiserror
   thiserror 1.0.69 — MIT OR Apache-2.0 — David Tolnay — https://github.com/dtolnay/thiserror
+  thiserror 2.0.21 — MIT OR Apache-2.0 — David Tolnay — https://github.com/dtolnay/thiserror
   thiserror-impl 1.0.69 — MIT OR Apache-2.0 — David Tolnay — https://github.com/dtolnay/thiserror
   thiserror-impl 2.0.21 — MIT OR Apache-2.0 — David Tolnay — https://github.com/dtolnay/thiserror
   time 0.3.55 — MIT OR Apache-2.0 — Jacob Pratt, Time contributors — https://github.com/time-rs/time
@@ -677,8 +677,8 @@ Biblioteki rdzenia (Rust) (291):
   want 0.3.2 — MIT — Sean McArthur — https://github.com/seanmonstar/want
   web-time 1.1.0 — MIT OR Apache-2.0 — https://github.com/daxpedda/web-time
   webpki 0.22.4 — plik licencji: LICENSE — Brian Smith — https://github.com/briansmith/webpki
-  webpki-roots 1.0.12 — CDLA-Permissive-2.0 — https://github.com/rustls/webpki-roots
   webpki-roots 0.26.11 — CDLA-Permissive-2.0 — https://github.com/rustls/webpki-roots
+  webpki-roots 1.0.12 — CDLA-Permissive-2.0 — https://github.com/rustls/webpki-roots
   winnow 1.0.5 — MIT — https://github.com/winnow-rs/winnow
   writeable 0.6.4 — Unicode-3.0 — The ICU4X Project Developers — https://github.com/unicode-org/icu4x
   yoke 0.8.4 — Unicode-3.0 — Manish Goregaokar — https://github.com/unicode-org/icu4x

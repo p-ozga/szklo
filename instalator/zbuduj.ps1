@@ -13,9 +13,9 @@ $env:RUSTFLAGS = "-C target-feature=+crt-static --remap-path-prefix=$($env:USERP
 cargo build --release -p szklo-app -p szklo-vst2
 Remove-Item Env:RUSTFLAGS
 if ($LASTEXITCODE -ne 0) { throw "cargo build nie powiodło się" }
-# najnowszy APK z dist (opcjonalny składnik instalatora)
-$apk = Get-ChildItem dist -Filter 'Szklo-*-arm64.apk' -ErrorAction SilentlyContinue | Sort-Object LastWriteTime | Select-Object -Last 1
-if (-not $apk) { throw "brak APK w dist\ – zbuduj aplikację na Androida albo usuń składnik Android z instalator\Szklo.wxs" }
+# APK tej samej wersji z dist (opcjonalny składnik instalatora) – starszy nie może trafić do instalatora
+$apk = Get-ChildItem dist -Filter "Szklo-$wersja-*-arm64.apk" -ErrorAction SilentlyContinue | Sort-Object LastWriteTime | Select-Object -Last 1
+if (-not $apk) { throw "brak APK $wersja w dist\ – zbuduj aplikację na Androida albo usuń składnik Android z instalator\Szklo.wxs" }
 New-Item -ItemType Directory -Force dist | Out-Null
 $msi = "dist\Szklo-$wersja-Windows-x64.msi"
 wix build instalator\Szklo.wxs -arch x64 -d "Wersja=$wersja" -d "Zrodla=$repo" -d "Apk=$($apk.FullName)" -o $msi

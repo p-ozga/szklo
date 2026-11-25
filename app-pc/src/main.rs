@@ -220,6 +220,10 @@ fn obsluz(w: &Arc<Wspolne>, body: &str) {
             let _ = w.proxy.send_event(Zd::Tryb);
             js(&w.proxy, format!("szklo.odtw({})", odtw_json(w, true)));
             js(&w.proxy, format!("szklo.spotify({})", spotify_pc::stan_json()));
+            if spotify_pc::aktywny().is_some() {
+                js(&w.proxy, format!("szklo.spSpis({})", spotify_pc::biblioteka().spis_json()));
+                js(&w.proxy, format!("szklo.spWidok({})", spotify_pc::biblioteka().widok_json()));
+            }
             js(&w.proxy, format!("szklo.spUkryte({})", spotify_okno::wlaczone()));
             // pierwsze uruchomienie z instalatora z zaznaczonym „zainstaluj Equalizer APO”
             static PO_INSTALACJI: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
@@ -402,15 +406,12 @@ fn obsluz(w: &Arc<Wspolne>, body: &str) {
         // ── Spotify ──
         "sp_zaloguj" => spotify_pc::get().zaloguj(),
         "sp_wyloguj" => spotify_pc::get().wyloguj(),
-        "sp_playlista" => {
-            if let Some(uri) = m["uri"].as_str() {
-                spotify_pc::get().utwory(uri);
-            }
-        }
+        // biblioteka i szukanie: polecenie w polu „m” idzie wprost do wspólnego modułu szklo-spotify
+        "sp_bib" => spotify_pc::get().biblioteka(m["m"].clone()),
         "sp_graj" => {
-            // cała otwarta playlista do kolejki odtwarzacza, start od wskazanego utworu
+            // cała otwarta lista do kolejki odtwarzacza, start od wskazanego utworu
             let i = m["i"].as_u64().unwrap_or(0) as usize;
-            let lista = spotify_pc::get().stan.lock().map(|s| s.utwory.clone()).unwrap_or_default();
+            let lista = spotify_pc::get().kolejka();
             if !lista.is_empty() {
                 w.odtw.rozkaz(odtwarzacz::Rozkaz::Zastap(lista, i));
             }
@@ -757,6 +758,7 @@ fn main() {
     let mut monitor_gen = apo_check::generacja();
     let mut ost_wersja_listy = u64::MAX;
     let mut ost_okladka_nr = u32::MAX;
+    let mut ost_sp = (0u64, 0u64);
     let mut ost_widmo = String::new();
     // urządzenie ma wpis Equalizer APO, coś gra, a wtyczka się nie łączy → APO dodany, ale jeszcze niezaładowany
     let mut apo_czeka_od: Option<Instant> = None;
@@ -1022,6 +1024,17 @@ fn main() {
                     }
                     if spotify_pc::aktywny().is_some_and(|s| s.zmiana.swap(false, Ordering::Relaxed)) {
                         let _ = webview.evaluate_script(&format!("szklo.spotify({})", spotify_pc::stan_json()));
+                    }
+                    if spotify_pc::aktywny().is_some() {
+                        let b = spotify_pc::biblioteka();
+                        let (ws, ww) = b.wersje();
+                        if ws != ost_sp.0 {
+                            let _ = webview.evaluate_script(&format!("szklo.spSpis({})", b.spis_json()));
+                        }
+                        if ww != ost_sp.1 {
+                            let _ = webview.evaluate_script(&format!("szklo.spWidok({})", b.widok_json()));
+                        }
+                        ost_sp = (ws, ww);
                     }
                     if licznik_tick % 6 == 0 {
                         let (p, g) = w.odtw.stan.lock().map(|s| (s.pozycja, s.gra)).unwrap_or((0.0, false));

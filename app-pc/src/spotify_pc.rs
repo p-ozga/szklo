@@ -1,4 +1,4 @@
-//! Spotify w Szkle na PC (Premium): logowanie OAuth w przeglądarce, biblioteka playlist, odtwarzanie przez librespot
+//! Spotify w Szkle na PC (Premium): logowanie OAuth w przeglądarce, biblioteka i szukanie ([`szklo_spotify`]), odtwarzanie przez librespot
 //! (otwarty, nieoficjalny klient Spotify – MIT). Dźwięk (44,1 kHz) trafia do bufora, z którego bierze go wbudowany
 //! odtwarzacz ([`crate::odtwarzacz`]) – ten sam tor co pliki z dysku: przeliczenie częstotliwości → silnik Szkła.
 //!
@@ -6,14 +6,12 @@
 
 use crate::odtwarzacz::Pozycja;
 use librespot_core::{authentication::Credentials, cache::Cache, session::Session, SessionConfig, SpotifyUri};
-use librespot_metadata::{Metadata, Playlist, Track};
 use librespot_playback::audio_backend::{Sink, SinkResult};
 use librespot_playback::config::PlayerConfig;
 use librespot_playback::convert::Converter;
 use librespot_playback::decoder::AudioPacket;
 use librespot_playback::mixer::NoOpVolume;
 use librespot_playback::player::{Player, PlayerEvent};
-use protobuf::Message;
 use ringbuf::traits::{Consumer, Observer, Producer, Split};
 use ringbuf::{HeapCons, HeapProd, HeapRb};
 use serde::Serialize;
@@ -29,29 +27,18 @@ const SCOPES: &str = "streaming user-read-private user-read-email playlist-read-
 pub const FS: u32 = 44_100;
 
 #[derive(Clone, Serialize, Default)]
-pub struct PlaylistaSp {
-    pub uri: String,
-    pub nazwa: String,
-    pub ile: i32,
-}
-
-#[derive(Clone, Serialize, Default)]
 pub struct SpStan {
     /// wylogowany | laczenie | login | gotowe | blad
     pub status: String,
     pub opis: String,
     pub konto: String,
-    pub playlisty: Vec<PlaylistaSp>,
-    /// utwory ostatnio otwartej playlisty
-    pub otwarta: Option<String>,
-    pub utwory: Vec<Pozycja>,
-    pub wczytywanie: bool,
 }
 
 enum Rozkaz {
     Zaloguj,
     Wyloguj,
-    Utwory(String),
+    /// biblioteka i szukanie (polecenie dla [`szklo_spotify::Kontroler`])
+    Biblioteka(serde_json::Value),
     Graj(String, u32),
     Pauza,
     Wznow,
@@ -144,10 +131,16 @@ pub fn start_jesli_zalogowany() {
     }
 }
 
+/// Biblioteka i szukanie (wspólne z Androidem). Opisy utworów zapisuje w prywatnym folderze programu.
+pub fn biblioteka() -> &'static szklo_spotify::Kontroler {
+    static K: OnceLock<szklo_spotify::Kontroler> = OnceLock::new();
+    K.get_or_init(|| szklo_spotify::Kontroler::nowy(Some(katalog())))
+}
+
 pub fn stan_json() -> serde_json::Value {
     aktywny()
         .and_then(|s| s.stan.lock().ok().map(|g| serde_json::to_value(&*g).unwrap_or_default()))
-        .unwrap_or_else(|| serde_json::json!({ "status": "wylogowany", "opis": "", "konto": "", "playlisty": [], "utwory": [], "otwarta": null, "wczytywanie": false }))
+        .unwrap_or_else(|| serde_json::json!({ "status": "wylogowany", "opis": "", "konto": "" }))
 }
 
 /// Zatrzymuje odtwarzanie Spotify, jeśli moduł był już uruchomiony (bez startowania go).
@@ -164,8 +157,16 @@ impl Spotify {
     pub fn wyloguj(&self) {
         let _ = self.tx.send(Rozkaz::Wyloguj);
     }
-    pub fn utwory(&self, uri: &str) {
-        let _ = self.tx.send(Rozkaz::Utwory(uri.to_string()));
+    pub fn biblioteka(&self, polecenie: serde_json::Value) {
+        let _ = self.tx.send(Rozkaz::Biblioteka(polecenie));
+    }
+    /// Utwory z bieżącego widoku biblioteki jako kolejka odtwarzacza.
+    pub fn kolejka(&self) -> Vec<Pozycja> {
+        biblioteka()
+            .utwory()
+            .into_iter()
+            .map(|u| Pozycja { wykonawca: u.wykonawca(), sciezka: u.uri, tytul: u.tytul, album: u.album.nazwa, czas: u.czas })
+            .collect()
     }
     pub fn graj(&self, uri: &str, ms: u32) {
         let _ = self.tx.send(Rozkaz::Graj(uri.to_string(), ms));
@@ -214,23 +215,7 @@ async fn petla(mut rx: tokio::sync::mpsc::UnboundedReceiver<Rozkaz>, stan: Arc<M
                 });
                 match polacz(&stan, &zmiana).await {
                     Ok(p) => {
-                        let konto = p.session.username();
-                        log::info!("Spotify: zalogowano ({konto})");
-                        ustaw(&stan, &zmiana, |s| {
-                            s.status = "gotowe".into();
-                            s.opis = "Wczytywanie playlist…".into();
-                            s.konto = konto;
-                        });
-                        match playlisty(&p.session).await {
-                            Ok(v) => ustaw(&stan, &zmiana, |s| {
-                                s.opis = format!("{} playlist", v.len());
-                                s.playlisty = v;
-                            }),
-                            Err(e) => {
-                                log::error!("Spotify: playlisty: {e}");
-                                ustaw(&stan, &zmiana, |s| s.opis = format!("Nie udało się wczytać playlist: {e}"));
-                            }
-                        }
+                        zalogowano(&p, &stan, &zmiana);
                         pol = Some(p);
                     }
                     Err(e) => {
@@ -248,32 +233,29 @@ async fn petla(mut rx: tokio::sync::mpsc::UnboundedReceiver<Rozkaz>, stan: Arc<M
                     p.session.shutdown();
                 }
                 let _ = std::fs::remove_file(katalog().join("credentials.json"));
+                biblioteka().wyloguj();
                 log::info!("Spotify: wylogowano");
                 ustaw(&stan, &zmiana, |s| *s = SpStan { status: "wylogowany".into(), ..Default::default() });
             }
-            Rozkaz::Utwory(uri) => {
-                let Some(p) = pol.as_ref() else { continue };
-                ustaw(&stan, &zmiana, |s| {
-                    s.wczytywanie = true;
-                    s.otwarta = Some(uri.clone());
-                    s.utwory.clear();
-                });
-                let v = utwory(&p.session, &uri).await;
-                match v {
-                    Ok(v) => ustaw(&stan, &zmiana, |s| {
-                        s.wczytywanie = false;
-                        if s.otwarta.as_deref() == Some(uri.as_str()) {
-                            s.utwory = v;
+            Rozkaz::Biblioteka(m) => {
+                // połączenie bywa zrywane (uśpienie komputera, zmiana sieci) – łączymy ponownie zapisanym logowaniem
+                if pol.as_ref().is_some_and(|p| p.session.is_invalid()) && katalog().join("credentials.json").exists() {
+                    log::info!("Spotify: połączenie zerwane – łączę ponownie");
+                    match polacz(&stan, &zmiana).await {
+                        Ok(p) => {
+                            if let Some(stare) = pol.take() {
+                                stare.player.stop();
+                            }
+                            zalogowano(&p, &stan, &zmiana);
+                            pol = Some(p);
                         }
-                    }),
-                    Err(e) => {
-                        log::error!("Spotify: utwory {uri}: {e}");
-                        ustaw(&stan, &zmiana, |s| {
-                            s.wczytywanie = false;
-                            s.opis = format!("Nie udało się wczytać playlisty: {e}");
-                        });
+                        Err(e) => {
+                            log::error!("Spotify: ponowne łączenie: {e}");
+                            ustaw(&stan, &zmiana, |s| s.opis = format!("Brak połączenia ze Spotify: {e}"));
+                        }
                     }
                 }
+                biblioteka().rozkaz(&m);
             }
             Rozkaz::Graj(uri, ms) => {
                 let Some(p) = pol.as_ref() else {
@@ -322,6 +304,17 @@ async fn petla(mut rx: tokio::sync::mpsc::UnboundedReceiver<Rozkaz>, stan: Arc<M
     }
 }
 
+fn zalogowano(p: &Polaczenie, stan: &Mutex<SpStan>, zmiana: &AtomicBool) {
+    let konto = p.session.username();
+    log::info!("Spotify: zalogowano ({konto})");
+    ustaw(stan, zmiana, |s| {
+        s.status = "gotowe".into();
+        s.opis = String::new();
+        s.konto = konto;
+    });
+    biblioteka().polacz(p.session.clone());
+}
+
 async fn polacz(stan: &Arc<Mutex<SpStan>>, zmiana: &Arc<AtomicBool>) -> Result<Polaczenie, String> {
     let k = katalog();
     let cache = Cache::new(Some(k.clone()), Some(k.clone()), None, None).map_err(|e| format!("pamięć podręczna: {e}"))?;
@@ -362,50 +355,6 @@ async fn polacz(stan: &Arc<Mutex<SpStan>>, zmiana: &Arc<AtomicBool>) -> Result<P
         }
     });
     Ok(Polaczenie { session, player })
-}
-
-/// Biblioteka: lista playlist użytkownika (rootlist).
-async fn playlisty(session: &Session) -> Result<Vec<PlaylistaSp>, String> {
-    let b = session.spclient().get_rootlist(0, Some(500)).await.map_err(|e| e.to_string())?;
-    let msg = librespot_protocol::playlist4_external::SelectedListContent::parse_from_bytes(&b).map_err(|e| e.to_string())?;
-    let mut v = Vec::new();
-    let c = msg.contents.as_ref();
-    if let Some(c) = c {
-        for (i, it) in c.items.iter().enumerate() {
-            let uri = it.uri().to_string();
-            if !uri.starts_with("spotify:playlist:") {
-                continue; // foldery itp.
-            }
-            let meta = c.meta_items.get(i);
-            let nazwa = meta.and_then(|m| m.attributes.as_ref()).map(|a| a.name().to_string()).unwrap_or_default();
-            let ile = meta.map(|m| m.length()).unwrap_or(0);
-            v.push(PlaylistaSp { uri, nazwa, ile });
-        }
-    }
-    Ok(v)
-}
-
-/// Utwory playlisty z metadanymi (tytuł, wykonawcy, album, czas). Kolejność zachowana.
-async fn utwory(session: &Session, uri: &str) -> Result<Vec<Pozycja>, String> {
-    use futures_util::StreamExt;
-    let id = SpotifyUri::from_uri(uri).map_err(|e| e.to_string())?;
-    let pl = Playlist::get(session, &id).await.map_err(|e| e.to_string())?;
-    let ids: Vec<SpotifyUri> = pl.tracks().filter(|t| matches!(t, SpotifyUri::Track { .. })).cloned().take(1000).collect();
-    let wynik: Vec<Option<Pozycja>> = futures_util::stream::iter(ids)
-        .map(|id| async move {
-            let t = Track::get(session, &id).await.ok()?;
-            Some(Pozycja {
-                sciezka: id.to_uri().ok()?,
-                tytul: t.name.clone(),
-                wykonawca: t.artists.iter().map(|a| a.name.clone()).collect::<Vec<_>>().join(", "),
-                album: t.album.name.clone(),
-                czas: t.duration as f64 / 1000.0,
-            })
-        })
-        .buffered(16)
-        .collect()
-        .await;
-    Ok(wynik.into_iter().flatten().collect())
 }
 
 // ───────────────────────────── wyjście librespot → bufor ─────────────────────────────

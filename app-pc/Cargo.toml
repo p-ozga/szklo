@@ -26,11 +26,8 @@ rfd = "0.15"
 # Spotify (Premium) w Szkle: librespot – otwarty, nieoficjalny klient (MIT); TLS w czystym Ruście
 librespot-core = { version = "0.8", default-features = false, features = ["rustls-tls-webpki-roots"] }
 librespot-playback = { version = "0.8", default-features = false, features = ["rustls-tls-webpki-roots"] }
-librespot-metadata = { version = "0.8", default-features = false }
-librespot-protocol = "0.8"
-protobuf = "3"
+szklo-spotify = { path = "../spotify" }
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time"] }
-futures-util = "0.3"
 reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls-webpki-roots"] }
 sha2 = "0.10"
 base64 = "0.22"

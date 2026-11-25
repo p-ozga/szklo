@@ -38,6 +38,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.text.font.FontFamily
@@ -84,6 +85,13 @@ fun PlayerBackside(
     onBack: () -> Unit,
 ) {
     val density = LocalDensity.current
+    var biblioteka by rememberSaveable { mutableStateOf(false) }
+    val scroll = rememberScrollState()
+    if (biblioteka && coreAvailable) {
+        // osobny ekran zamiast strony tylnej (nic pod spodem nie przyjmuje dotyku)
+        BibliotekaScreen(onClose = { biblioteka = false })
+        return
+    }
     Box(Modifier.fillMaxSize()) {
         GlowBackground(
             Modifier.fillMaxSize(),
@@ -94,7 +102,7 @@ fun PlayerBackside(
             Modifier
                 .fillMaxSize()
                 .windowInsetsPadding(WindowInsets.safeDrawing)
-                .verticalScroll(rememberScrollState())
+                .verticalScroll(scroll)
                 .padding(top = 28.dp, start = 18.dp, end = 18.dp, bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
@@ -105,6 +113,7 @@ fun PlayerBackside(
 
             PresetsCard(onApplyPreset)
             SpotifyConnectCard(coreAvailable)
+            BibliotekaCard(coreAvailable) { biblioteka = true }
             ExternalPlayersCard(controls)
             LocalPlayerCard(player, coreAvailable, local)
             WizualizacjaCard(coreAvailable)

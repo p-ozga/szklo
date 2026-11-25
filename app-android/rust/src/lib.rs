@@ -60,6 +60,31 @@ pub extern "system" fn Java_pl_szklo_core_NativeEngine_nativeSpotifyLogout(mut e
     }
 }
 
+/// Polecenie biblioteki Spotify (JSON – patrz moduł `szklo-spotify`).
+#[no_mangle]
+pub extern "system" fn Java_pl_szklo_core_NativeEngine_nativeSpotifyLib(mut env: JNIEnv, _c: JClass, cache_dir: JString, cmd: JString) {
+    diag::init();
+    if let (Some(d), Some(c)) = (jstr(&mut env, &cache_dir), jstr(&mut env, &cmd)) {
+        spotify::bib_rozkaz(d, c);
+    }
+}
+
+/// Stan biblioteki Spotify (JSON) albo pusty tekst, gdy od wersji `ws`/`ww` nic się nie zmieniło.
+#[no_mangle]
+pub extern "system" fn Java_pl_szklo_core_NativeEngine_nativeSpotifyLibState<'a>(mut env: JNIEnv<'a>, _c: JClass<'a>, cache_dir: JString<'a>, ws: jlong, ww: jlong) -> JString<'a> {
+    let t = jstr(&mut env, &cache_dir).map(|d| spotify::bib_stan(&d, ws, ww)).unwrap_or_default();
+    env.new_string(t).unwrap_or_default()
+}
+
+/// Gra utwory (JSON: lista adresów) przez odbiornik „Szkło”; false – odbiornik nie działa.
+#[no_mangle]
+pub extern "system" fn Java_pl_szklo_core_NativeEngine_nativeSpotifyPlay(mut env: JNIEnv, _c: JClass, uris: JString) -> jboolean {
+    match jstr(&mut env, &uris) {
+        Some(u) if spotify::bib_graj(&u) => JNI_TRUE,
+        _ => JNI_FALSE,
+    }
+}
+
 /// Stan: `idle | connecting | login <url> | ready | playing | error <opis>`.
 #[no_mangle]
 pub extern "system" fn Java_pl_szklo_core_NativeEngine_nativeSpotifyStatus<'a>(env: JNIEnv<'a>, _c: JClass<'a>) -> JString<'a> {
